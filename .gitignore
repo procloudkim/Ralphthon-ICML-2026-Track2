@@ -47,6 +47,13 @@ report/*.log
 report/*.out
 report/*.synctex.gz
 
+# Event run artifacts and ad-hoc outputs
+tools/
+tmp/
+evals/results/runtime-artifacts-*/
+\[중요\]대회주요정보.txt
+submission/submission_manifest.json
+
 .codegraph/
 .codex/
 .agents/
