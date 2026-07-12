@@ -116,7 +116,7 @@ def create_event_client() -> httpx2.AsyncClient:
     """Create the bounded HTTP/2 event client used by the typed adapter."""
     transport = httpx2.AsyncHTTPTransport(
         http2=True,
-        retries=3,
+        retries=0,
         limits=_LIMITS,
         socket_options=[(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)],
     )

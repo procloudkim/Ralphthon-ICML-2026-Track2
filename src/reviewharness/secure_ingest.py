@@ -158,6 +158,8 @@ def _category(text: str, reasons: tuple[str, ...]) -> InjectionClassification | 
 
 
 def _finding(document_hash: str, candidate: _Candidate) -> SecurityFinding | None:
+    if not candidate.text.strip():
+        return None
     reasons = _reasons(candidate.text, candidate.reasons)
     category = _category(candidate.text, reasons)
     if category is None:

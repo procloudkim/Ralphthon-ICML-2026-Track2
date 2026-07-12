@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, replace
 from time import monotonic
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, override
 
 import anyio
 
 from .api_adapter import (
+    AgentCredential,
     ApiAdapterConfig,
+    ApiContractError,
     CredentialExchangeRequest,
     EventAssignment,
-    RalphthonApiAdapter,
 )
 from .artifacts import ArtifactPathError, ArtifactStore
 from .codex_provider import CodexExecReviewerProvider
@@ -32,6 +34,11 @@ from .live_support import (
     success_result,
 )
 from .local_provider import LocalHeuristicProvider
+from .runbook_adapter import (
+    GuidanceReasonCode,
+    RunbookApiAdapter,
+    StatusGuidance,
+)
 from .schemas import TrustedAssignment
 
 if TYPE_CHECKING:
@@ -40,10 +47,92 @@ if TYPE_CHECKING:
 _MODEL_TIMEOUT_SECONDS: Final = 240.0
 _PER_PAPER_TIMEOUT_SECONDS: Final = 300.0
 _RESERVE_SECONDS: Final = 120.0
+_ALLOWED_ACTION_ACTORS: Final = frozenset({"agent", "server"})
+
+
+@dataclass(frozen=True, slots=True)
+class LivePreparation:
+    credential: AgentCredential
+    assignments: tuple[EventAssignment, ...]
+    deadline_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
+class LiveGuidanceStop(RuntimeError):
+    guidance: StatusGuidance
+    success: bool
+
+    @override
+    def __str__(self) -> str:
+        return self.guidance.reason_code.value
+
+
 def ensure_live_provider(provider: LiveProvider) -> None:
     """Fail before credentials or assignments when Codex is not selected."""
     if provider is LiveProvider.LOCAL_HEURISTIC:
         raise LiveProviderUnavailableError
+
+
+async def prepare_live_run(
+    adapter: RunbookApiAdapter,
+    setup_token: SecretStr,
+    run_config: LiveRunConfig,
+) -> LivePreparation:
+    await adapter.fetch_canonical_skill()
+    credential = await adapter.exchange_credential(
+        CredentialExchangeRequest(setup_token=setup_token)
+    )
+    status = await adapter.get_status(credential)
+    guidance = status.guidance
+    if guidance.next_action_actor not in _ALLOWED_ACTION_ACTORS:
+        issue = ((("guidance", "next_action_actor"), "value_error"),)
+        raise ApiContractError(
+            "status guidance actor",
+            1,
+            issue,
+        )
+    match guidance.reason_code:
+        case GuidanceReasonCode.ALL_REVIEWS_SUBMITTED:
+            raise LiveGuidanceStop(guidance, success=True)
+        case (
+            GuidanceReasonCode.ACTIVE_TRACK2_REPORT_REQUIRED
+            | GuidanceReasonCode.INSUFFICIENT_ELIGIBLE_PAPERS
+        ):
+            raise LiveGuidanceStop(guidance, success=False)
+        case (
+            GuidanceReasonCode.ASSIGNMENTS_CAN_BE_CREATED
+            | GuidanceReasonCode.ASSIGNMENTS_RETURNED
+            | GuidanceReasonCode.REVIEWS_REMAINING
+        ):
+            if not guidance.action_available and guidance.next_action == "none":
+                raise LiveGuidanceStop(guidance, success=False)
+    window_opens_at = guidance.time.window_opens_at
+    window_closes_at = guidance.time.window_closes_at
+    if window_opens_at is not None and guidance.time.now < window_opens_at:
+        raise LiveGuidanceStop(guidance, success=False)
+    server_seconds = run_config.deadline_seconds
+    if window_closes_at is not None:
+        server_seconds = (
+            window_closes_at - guidance.time.now
+        ).total_seconds() - _RESERVE_SECONDS
+        if server_seconds <= 0.0:
+            raise LiveGuidanceStop(guidance, success=False)
+    batch = await adapter.get_assignments(credential)
+    assignments = (
+        batch.assignments
+        if batch.remaining == len(batch.assignments)
+        else tuple(item for item in batch.assignments if item.status == "assigned")
+    )
+    if (
+        batch.submitted + batch.remaining != batch.assigned
+        or len(assignments) != batch.remaining
+    ):
+        raise ApiContractError("assignment status", 1)
+    return LivePreparation(
+        credential=credential,
+        assignments=assignments,
+        deadline_seconds=min(run_config.deadline_seconds, server_seconds),
+    )
 
 
 async def run_live_event(
@@ -54,28 +143,29 @@ async def run_live_event(
     """Fetch ten assignments and submit each validated review immediately."""
     ensure_live_provider(run_config.provider)
     started_at = monotonic()
-    store = ArtifactStore(run_config.output_dir)
     results: dict[int, LivePaperResult] = {}
     paper_limiter = anyio.CapacityLimiter(run_config.paper_concurrency)
     model_limiter = anyio.CapacityLimiter(run_config.paper_concurrency)
-    codex_kernel = ReviewKernel(
-        CodexExecReviewerProvider(),
-        policy=ReviewKernelPolicy(
-            timeout_seconds=_MODEL_TIMEOUT_SECONDS,
-            require_reviewer_output=True,
-            retry_reviewer_failures=False,
-        ),
-    )
-    fallback_kernel = ReviewKernel(
-        LocalHeuristicProvider(),
-        policy=ReviewKernelPolicy(confidence_cap=2),
-    )
     async with create_event_client() as client:
-        adapter = RalphthonApiAdapter(api_config, client)
-        credential = await adapter.exchange_credential(
-            CredentialExchangeRequest(setup_token=setup_token)
+        adapter = RunbookApiAdapter(api_config, client)
+        prepared = await prepare_live_run(adapter, setup_token, run_config)
+        effective_config = replace(
+            run_config,
+            deadline_seconds=prepared.deadline_seconds,
         )
-        batch = await adapter.get_assignments(credential)
+        store = ArtifactStore(run_config.output_dir)
+        codex_kernel = ReviewKernel(
+            CodexExecReviewerProvider(),
+            policy=ReviewKernelPolicy(
+                timeout_seconds=_MODEL_TIMEOUT_SECONDS,
+                require_reviewer_output=True,
+                retry_reviewer_failures=False,
+            ),
+        )
+        fallback_kernel = ReviewKernel(
+            LocalHeuristicProvider(),
+            policy=ReviewKernelPolicy(confidence_cap=2),
+        )
 
         async def worker(assignment: EventAssignment) -> None:
             async with paper_limiter:
@@ -85,13 +175,13 @@ async def run_live_event(
                 retries = 0
                 try:
                     usable = _usable_seconds(
-                        run_config,
+                        effective_config,
                         started_at,
                         paper_started,
                     )
                     with anyio.fail_after(usable):
                         pdf_path = await adapter.download_pdf(
-                            credential,
+                            prepared.credential,
                             assignment,
                             store.paper_directory(paper_id) / "paper.pdf",
                         )
@@ -120,7 +210,7 @@ async def run_live_event(
                                 model_limiter,
                             )
                         receipt = await adapter.submit_review(
-                            credential,
+                            prepared.credential,
                             assignment,
                             review,
                             idempotency_key(assignment, review),
@@ -167,7 +257,7 @@ async def run_live_event(
                     )
 
         async with anyio.create_task_group() as task_group:
-            for assignment in batch.assignments:
+            for assignment in prepared.assignments:
                 _ = task_group.start_soon(worker, assignment)
     items = tuple(results[ordinal] for ordinal in sorted(results))
     return LiveSummary(items=items, total_seconds=monotonic() - started_at)
@@ -179,7 +269,7 @@ def _usable_seconds(
     paper_started: float,
 ) -> float:
     remaining = config.deadline_seconds - (paper_started - run_started)
-    usable = min(_PER_PAPER_TIMEOUT_SECONDS, remaining - _RESERVE_SECONDS)
+    usable = min(_PER_PAPER_TIMEOUT_SECONDS, remaining)
     if usable <= 0.0:
         raise TimeoutError
     return usable

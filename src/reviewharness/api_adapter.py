@@ -44,11 +44,21 @@ type NonEmptyText = Annotated[
 ]
 type AssignmentOrdinal = Annotated[int, Field(strict=True, ge=1, le=10)]
 type EventCount = Annotated[int, Field(strict=True, ge=0, le=10)]
+type _ValidationLocation = tuple[str | int, ...]
+type _SafeValidationIssue = tuple[_ValidationLocation, str]
 IdempotencyKey = NewType("IdempotencyKey", str)
 
 
 class _StrictModel(BaseModel):
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+
+class Prerequisite(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="ignore", frozen=True)
+
+    code: str
+    satisfied: StrictBool
+    actor: str
 
 
 class _Guidance(_StrictModel):
@@ -59,6 +69,7 @@ class _Guidance(_StrictModel):
     reason_code: NonEmptyText
     next_action: NonEmptyText
     next_action_actor: NonEmptyText
+    prerequisites: tuple[Prerequisite, ...] = ()
 
 
 class CredentialExchangeRequest(_StrictModel):
@@ -78,14 +89,14 @@ class AgentCredential(_StrictModel):
 class _EventPaper(_StrictModel):
     title: str
     abstract: str
-    pdf_url: HttpUrl
+    pdf_url: NonEmptyText
 
 
 class EventAssignment(_StrictModel):
     """Server-owned ordinal and its scoped paper metadata."""
 
     ordinal: AssignmentOrdinal
-    status: NonEmptyText
+    status: str | None
     paper: _EventPaper
 
 
@@ -143,14 +154,27 @@ class ApiContractError(Exception):
 
     operation: str
     violation_count: int
+    issues: tuple[_SafeValidationIssue, ...]
 
-    def __init__(self, operation: str, violation_count: int) -> None:
+    def __init__(
+        self,
+        operation: str,
+        violation_count: int,
+        issues: tuple[_SafeValidationIssue, ...] = (),
+    ) -> None:
         """Initialize a redaction-safe contract error."""
         self.operation, self.violation_count = operation, violation_count
-        super().__init__(operation, violation_count)
+        self.issues = issues
+        super().__init__(operation, violation_count, issues)
 
     @override
     def __str__(self) -> str:
+        if self.issues:
+            fields = ",".join(
+                f"{'/'.join(str(part) for part in location)}:{error_type}"
+                for location, error_type in self.issues
+            )
+            return f"{self.operation} validation failed [{fields}]"
         return (
             f"{self.operation} response has "
             f"{self.violation_count} contract violation(s)"
@@ -211,7 +235,22 @@ class RalphthonApiAdapter:
             follow_redirects=False,
         )
         _ = response.raise_for_status()
-        batch = _parse_response(response, AssignmentBatch, _ASSIGNMENT_OPERATION)
+        try:
+            batch = AssignmentBatch.model_validate_json(response.content)
+        except ValidationError as error:
+            issues = tuple(
+                (tuple(issue["loc"]), issue["type"])
+                for issue in error.errors(
+                    include_context=False,
+                    include_input=False,
+                    include_url=False,
+                )
+            )
+            raise ApiContractError(
+                _ASSIGNMENT_OPERATION,
+                len(issues),
+                issues,
+            ) from None
         ordinals = tuple(item.ordinal for item in batch.assignments)
         if ordinals != tuple(range(1, _ASSIGNMENT_COUNT + 1)):
             raise ApiContractError(_ASSIGNMENT_OPERATION, 1)
@@ -224,7 +263,17 @@ class RalphthonApiAdapter:
         destination: Path,
     ) -> Path:
         """Stream one authenticated scoped PDF atomically to the caller path."""
-        download_url = httpx2.URL(str(assignment.paper.pdf_url))
+        raw_url = httpx2.URL(assignment.paper.pdf_url)
+        expected_path = f"{_API_PREFIX}/assignments/{assignment.ordinal}/pdf"
+        if raw_url.is_relative_url and (
+            raw_url.path != expected_path
+            or raw_url.query
+            or raw_url.fragment
+            or raw_url.userinfo
+        ):
+            raise UnsafeDownloadUrlError(assignment.ordinal)
+        base_url = httpx2.URL(str(self.config.base_url))
+        download_url = base_url.join(raw_url) if raw_url.is_relative_url else raw_url
         self._verify_download_url(download_url, assignment.ordinal)
         async with self.client.stream(
             "GET",
@@ -305,5 +354,7 @@ class RalphthonApiAdapter:
             or url.port != base_url.port
             or url.path != expected_path
             or url.query
+            or url.fragment
+            or url.userinfo
         ):
             raise UnsafeDownloadUrlError(ordinal)

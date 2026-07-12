@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Annotated, Final, Never
@@ -12,13 +13,14 @@ import typer
 from pydantic import HttpUrl, SecretStr, ValidationError
 
 from .api_adapter import ApiAdapterConfig, ApiContractError
-from .live import ensure_live_provider, run_live_event
+from .live import LiveGuidanceStop, ensure_live_provider, run_live_event
 from .live_support import (
     LiveProvider,
     LiveProviderUnavailableError,
     LiveRunConfig,
     LiveSummary,
 )
+from .runbook_adapter import GuidanceDiagnostic, RunbookApiError
 
 _DEFAULT_LIVE_OUTPUT: Final = Path("runs/live/current")
 _LIVE_SETUP_TOKEN_ENV: Final = "RALPHTHON_SETUP_TOKEN"  # noqa: S105
@@ -29,6 +31,38 @@ _LIVE_IDEMPOTENCY_HEADER_ENV: Final = "RALPHTHON_IDEMPOTENCY_HEADER"
 def _fail(code: str) -> Never:
     typer.echo(code, err=True)
     raise typer.Exit(code=1)
+
+
+def _guidance_fields(guidance: GuidanceDiagnostic) -> tuple[str, ...]:
+    time = guidance.time
+    return (
+        f"stage={guidance.stage or 'unknown'}",
+        f"reason_code={guidance.reason_code or 'unknown'}",
+        f"next_action={guidance.next_action or 'unknown'}",
+        f"action_available={guidance.action_available}",
+        f"server_now={'unknown' if time is None else time.now.isoformat()}",
+        f"window_opens_at={'unknown' if time is None else time.window_opens_at.isoformat()}",
+        f"window_closes_at={'unknown' if time is None else time.window_closes_at.isoformat()}",
+    )
+
+
+def _format_api_error(error: RunbookApiError) -> str:
+    guidance = error.guidance or GuidanceDiagnostic()
+    return " ".join(
+        (
+            "LIVE_RUN_FAILED",
+            f"operation={error.operation}",
+            f"http_status={error.status_code or 'unknown'}",
+            f"api_detail={json.dumps(error.detail or 'unavailable')}",
+            *_guidance_fields(guidance),
+        )
+    )
+
+
+def _format_guidance_stop(error: LiveGuidanceStop) -> str:
+    guidance = GuidanceDiagnostic.model_validate(error.guidance.model_dump())
+    code = "LIVE_ALREADY_COMPLETE" if error.success else "LIVE_GUIDANCE_STOP"
+    return " ".join((code, "operation=status_guidance", *_guidance_fields(guidance)))
 
 
 async def _run_live(
@@ -83,8 +117,35 @@ def live_command(
             api_config,
             run_config,
         )
-    except (ApiContractError, httpx2.HTTPError, OSError, ValidationError, ValueError):
-        _fail("LIVE_RUN_FAILED")
+    except LiveGuidanceStop as error:
+        typer.echo(_format_guidance_stop(error), err=not error.success)
+        if error.success:
+            return
+        raise typer.Exit(code=1) from None
+    except RunbookApiError as error:
+        _fail(_format_api_error(error))
+    except ApiContractError as error:
+        _fail(
+            " ".join(
+                (
+                    "LIVE_RUN_FAILED",
+                    f"operation={error.operation}",
+                    "http_status=unknown",
+                    f"api_detail={json.dumps(str(error))}",
+                )
+            )
+        )
+    except (httpx2.HTTPError, OSError, ValidationError, ValueError) as error:
+        _fail(
+            " ".join(
+                (
+                    "LIVE_RUN_FAILED",
+                    "operation=live_run",
+                    "http_status=unknown",
+                    f"api_detail={json.dumps(type(error).__name__)}",
+                )
+            )
+        )
     for item in summary.items:
         typer.echo(
             " ".join(
