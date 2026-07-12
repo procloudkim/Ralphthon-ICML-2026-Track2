@@ -46,3 +46,8 @@ report/*.blg
 report/*.log
 report/*.out
 report/*.synctex.gz
+
+.codegraph/
+.codex/
+.agents/
+.omo/

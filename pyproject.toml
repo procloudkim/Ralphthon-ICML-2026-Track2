@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "reviewharness"
+version = "0.1.0"
+description = "API-native injection-resilient ICML review kernel"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "anyio>=4.14,<5",
+  "httpx2[brotli,http2,zstd]>=2.5,<3",
+  "pydantic>=2.12,<3",
+  "pymupdf>=1.26,<2",
+  "pyyaml>=6,<7",
+  "reportlab>=4.4,<5",
+  "rich>=14,<15",
+  "typer>=0.20,<1",
+]
+
+[project.scripts]
+reviewharness = "reviewharness.cli:main"
+
+[dependency-groups]
+dev = [
+  "basedpyright>=1.37,<2",
+  "pytest>=9,<10",
+  "pytest-cov>=7,<8",
+  "ruff>=0.14,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/reviewharness"]
+
+[tool.basedpyright]
+include = ["src", "tests", "report"]
+pythonVersion = "3.12"
+typeCheckingMode = "all"
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["COM812", "CPY001", "D203", "D213", "ISC001"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/reviewharness/cli.py" = ["B008"]
+"tests/**/*.py" = ["ANN", "ARG", "D", "PLR2004", "S101", "SLF001"]
+"report/**/*.py" = ["INP001", "T201"]
+
+[tool.pytest.ini_options]
+addopts = ["--strict-config", "--strict-markers"]
+testpaths = ["tests"]
+xfail_strict = true
