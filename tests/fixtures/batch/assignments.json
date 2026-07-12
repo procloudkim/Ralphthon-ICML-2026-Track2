@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "provenance": "synthetic_controlled_fixture",
+  "assignments": [
+    {
+      "paper_id": "SAMPLE-001",
+      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "requested_mode": "full"
+    },
+    {
+      "paper_id": "SAMPLE-002",
+      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "requested_mode": "fast"
+    },
+    {
+      "paper_id": "SAMPLE-003",
+      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "requested_mode": "full"
+    },
+    {
+      "paper_id": "SAMPLE-004",
+      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "requested_mode": "fast"
+    },
+    {
+      "paper_id": "SAMPLE-005",
+      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "requested_mode": "full"
+    },
+    {
+      "paper_id": "SAMPLE-006",
+      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "requested_mode": "fast"
+    },
+    {
+      "paper_id": "SAMPLE-007",
+      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "requested_mode": "full"
+    },
+    {
+      "paper_id": "SAMPLE-008",
+      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "requested_mode": "fast"
+    },
+    {
+      "paper_id": "SAMPLE-009",
+      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "requested_mode": "full"
+    },
+    {
+      "paper_id": "SAMPLE-010",
+      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "requested_mode": "fast"
+    }
+  ]
+}

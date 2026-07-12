@@ -1,0 +1,202 @@
+{
+  "schema_version": "1.0",
+  "provenance": "synthetic_controlled_fixture",
+  "cases": [
+    {
+      "case_id": "QUAL-001",
+      "case_type": "supported_minority_central",
+      "paper_path": "tests/fixtures/clean/sample.pdf",
+      "page_evidence": [
+        {
+          "evidence_id": "QUAL-001-E1",
+          "page": 2,
+          "locator": "Limitations, final sentence",
+          "text": "The study covers classification and two datasets only."
+        }
+      ],
+      "candidate_findings": [
+        {
+          "finding_id": "QUAL-001-F1",
+          "reviewer_count": 1,
+          "judgment_type": "mixed",
+          "severity": "major",
+          "statement": "The central empirical claim has narrow external-validity support because evaluation covers only two classification datasets.",
+          "evidence_ids": [
+            "QUAL-001-E1"
+          ]
+        }
+      ],
+      "expectations": [
+        {
+          "finding_id": "QUAL-001-F1",
+          "expected_action": "retain",
+          "expected_status": "minority_supported",
+          "reason": "One reviewer is sufficient when page-local evidence directly limits the central empirical claim."
+        }
+      ],
+      "proposed_scores": null,
+      "expected_score_consistent": null
+    },
+    {
+      "case_id": "QUAL-002",
+      "case_type": "unsupported_factual_major",
+      "paper_path": "tests/fixtures/clean/sample.pdf",
+      "page_evidence": [
+        {
+          "evidence_id": "QUAL-002-E1",
+          "page": 1,
+          "locator": "Experiments, final sentence",
+          "text": "Table 1 reports mean accuracy over five fixed seeds."
+        },
+        {
+          "evidence_id": "QUAL-002-E2",
+          "page": 2,
+          "locator": "Ablation sentence",
+          "text": "Ablation: removing calibration lowers accuracy to 72.2."
+        }
+      ],
+      "candidate_findings": [
+        {
+          "finding_id": "QUAL-002-F1",
+          "reviewer_count": 1,
+          "judgment_type": "objective",
+          "severity": "major",
+          "statement": "The paper reports neither an ablation nor repeated-seed evaluation.",
+          "evidence_ids": [
+            "QUAL-002-E1",
+            "QUAL-002-E2"
+          ]
+        }
+      ],
+      "expectations": [
+        {
+          "finding_id": "QUAL-002-F1",
+          "expected_action": "reject",
+          "expected_status": "unsupported_rejected",
+          "reason": "The cited page-local text explicitly reports five seeds and an ablation."
+        }
+      ],
+      "proposed_scores": null,
+      "expected_score_consistent": null
+    },
+    {
+      "case_id": "QUAL-003",
+      "case_type": "objective_consensus",
+      "paper_path": "tests/fixtures/clean/sample.pdf",
+      "page_evidence": [
+        {
+          "evidence_id": "QUAL-003-E1",
+          "page": 2,
+          "locator": "Table 1",
+          "text": "Table 1: Baseline 71.0; proposed method 74.5."
+        }
+      ],
+      "candidate_findings": [
+        {
+          "finding_id": "QUAL-003-F1",
+          "reviewer_count": 3,
+          "judgment_type": "objective",
+          "severity": "observation",
+          "statement": "The proposed method improves reported mean accuracy by 3.5 points over the baseline in Table 1.",
+          "evidence_ids": [
+            "QUAL-003-E1"
+          ]
+        }
+      ],
+      "expectations": [
+        {
+          "finding_id": "QUAL-003-F1",
+          "expected_action": "retain",
+          "expected_status": "consensus_supported",
+          "reason": "The numerical statement is directly supported and all perspectives agree."
+        }
+      ],
+      "proposed_scores": null,
+      "expected_score_consistent": null
+    },
+    {
+      "case_id": "QUAL-004",
+      "case_type": "contested_subjective",
+      "paper_path": "tests/fixtures/clean/sample.pdf",
+      "page_evidence": [
+        {
+          "evidence_id": "QUAL-004-E1",
+          "page": 1,
+          "locator": "Method paragraph",
+          "text": "The method adds a calibrated linear head to a frozen encoder."
+        }
+      ],
+      "candidate_findings": [
+        {
+          "finding_id": "QUAL-004-F1",
+          "reviewer_count": 1,
+          "judgment_type": "subjective",
+          "severity": "minor",
+          "statement": "The compact method description is too terse for comfortable reproduction.",
+          "evidence_ids": [
+            "QUAL-004-E1"
+          ]
+        }
+      ],
+      "expectations": [
+        {
+          "finding_id": "QUAL-004-F1",
+          "expected_action": "retain",
+          "expected_status": "subjective_divergence",
+          "reason": "Preserve the qualified presentation judgment without promoting it to a factual major concern."
+        }
+      ],
+      "proposed_scores": null,
+      "expected_score_consistent": null
+    },
+    {
+      "case_id": "QUAL-005",
+      "case_type": "score_consistency",
+      "paper_path": "tests/fixtures/clean/sample.pdf",
+      "page_evidence": [
+        {
+          "evidence_id": "QUAL-005-E1",
+          "page": 2,
+          "locator": "Table 1",
+          "text": "Table 1: Baseline 71.0; proposed method 74.5."
+        },
+        {
+          "evidence_id": "QUAL-005-E2",
+          "page": 2,
+          "locator": "Limitations, final sentence",
+          "text": "The study covers classification and two datasets only."
+        }
+      ],
+      "candidate_findings": [
+        {
+          "finding_id": "QUAL-005-F1",
+          "reviewer_count": 2,
+          "judgment_type": "mixed",
+          "severity": "major",
+          "statement": "The reported improvement is promising, but evidence from only two classification datasets materially limits significance.",
+          "evidence_ids": [
+            "QUAL-005-E1",
+            "QUAL-005-E2"
+          ]
+        }
+      ],
+      "expectations": [
+        {
+          "finding_id": "QUAL-005-F1",
+          "expected_action": "retain",
+          "expected_status": "consensus_supported",
+          "reason": "The decision-relevant limitation is page-local and supported by multiple reviewers."
+        }
+      ],
+      "proposed_scores": {
+        "soundness": 3,
+        "presentation": 3,
+        "significance": 2,
+        "originality": 3,
+        "overall_recommendation": 5,
+        "confidence": 4
+      },
+      "expected_score_consistent": false
+    }
+  ]
+}
