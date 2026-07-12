@@ -59,14 +59,25 @@ class _PdfCanvas(Protocol):
         leading: float | None = None,
     ) -> None: ...
     def drawString(self, x: float, y: float, text: str) -> None: ...  # noqa: N802
+    def drawCentredString(  # noqa: N802
+        self,
+        x: float,
+        y: float,
+        text: str,
+    ) -> None: ...
     def drawRightString(self, x: float, y: float, text: str) -> None: ...  # noqa: N802
     def line(self, x1: float, y1: float, x2: float, y2: float) -> None: ...
+    def rect(self, x: float, y: float, width: float, height: float) -> None: ...
     def showPage(self) -> None: ...  # noqa: N802
     def save(self) -> None: ...
 
 
 def _percent(value: float) -> str:
     return f"{value:.1%}"
+
+
+def _whole_percent(value: float) -> str:
+    return f"{value:.0%}"
 
 
 def _joined(parts: tuple[str, ...]) -> str:
@@ -159,9 +170,12 @@ def _make_pages(metrics: ReportMetrics) -> tuple[_ReportPage, ...]:
         (
             _joined(
                 (
-                    f"The batch produced {runtime.valid_completion_count} valid ",
+                    "Under the deterministic local fixture and provider used for ",
+                    "reliability testing, the batch produced ",
+                    f"{runtime.valid_completion_count} valid ",
                     f"completions from {runtime.paper_count} papers in ",
-                    f"{runtime.total_seconds:.3f} seconds. Per-paper p50 was ",
+                    f"{runtime.total_seconds:.3f} seconds; this measurement excludes ",
+                    "hosted-model inference and network latency. Per-paper p50 was ",
                     f"{runtime.p50_seconds:.3f} seconds and p95 was ",
                     f"{runtime.p95_seconds:.3f} seconds.",
                 )
@@ -211,7 +225,161 @@ def _draw_paragraph(pdf: _PdfCanvas, text: str, y: float) -> float:
     return y - 3.0
 
 
-def _draw_page(pdf: _PdfCanvas, page: _ReportPage, page_number: int) -> None:
+def _draw_architecture_diagram(pdf: _PdfCanvas, y: float) -> float:
+    pdf.setFont("Helvetica-Bold", 10.0)
+    pdf.drawString(LEFT, y, "Architecture boundary")
+    y -= 16.0
+    labels = (
+        ("UNTRUSTED", "PDF"),
+        ("SECURE", "INGEST"),
+        ("CLAIM", "LEDGER"),
+        ("3 INDEPENDENT", "REVIEW LENSES"),
+        ("EVIDENCE", "GATE"),
+        ("DISAGREEMENT", "RESOLVER"),
+        ("ICML SCORE", "CALIBRATOR"),
+        ("STRICT REVIEW", "JSON"),
+    )
+    box_width = 56.0
+    box_height = 32.0
+    gap = (RIGHT - LEFT - box_width * len(labels)) / (len(labels) - 1)
+    box_bottom = y - box_height
+    center_y = box_bottom + box_height / 2.0
+    for index, lines in enumerate(labels):
+        x = LEFT + index * (box_width + gap)
+        pdf.rect(x, box_bottom, box_width, box_height)
+        pdf.setFont("Helvetica-Bold", 5.6)
+        text_y = center_y + 2.0
+        for label_line in lines:
+            pdf.drawCentredString(x + box_width / 2.0, text_y, label_line)
+            text_y -= 7.0
+        if index < len(labels) - 1:
+            arrow_start = x + box_width
+            arrow_end = x + box_width + gap - 2.0
+            pdf.line(arrow_start, center_y, arrow_end, center_y)
+            pdf.line(arrow_end - 3.0, center_y + 2.0, arrow_end, center_y)
+            pdf.line(arrow_end - 3.0, center_y - 2.0, arrow_end, center_y)
+    y = box_bottom - 14.0
+    pdf.setFont("Helvetica-Oblique", 7.6)
+    pdf.drawString(
+        LEFT,
+        y,
+        "Agreement informs confidence; verified evidence and central-claim impact determine priority.",
+    )
+    return y - 18.0
+
+
+def _draw_table_cell(
+    pdf: _PdfCanvas,
+    text: str,
+    x: float,
+    top: float,
+    width: float,
+    *,
+    bold: bool = False,
+) -> None:
+    pdf.setFont("Helvetica-Bold" if bold else "Helvetica", 7.0)
+    lines = wrap(
+        text,
+        width=max(8, int(width / 3.7)),
+        break_long_words=False,
+        break_on_hyphens=False,
+    )
+    line_y = top - 11.0
+    for line_text in lines[:3]:
+        pdf.drawString(x + 4.0, line_y, line_text)
+        line_y -= 8.0
+
+
+def _draw_results_table(pdf: _PdfCanvas, metrics: ReportMetrics, y: float) -> float:
+    security = metrics.security
+    quality = metrics.quality
+    runtime = metrics.runtime
+    security_passes = round(
+        security.evaluated_cases * security.valid_completion_rate
+    )
+    quality_passes = round(quality.evaluated_cases * quality.valid_completion_rate)
+    marker_leaks = round(security.evaluated_cases * security.marker_leakage_rate)
+    rows = (
+        (
+            "Security",
+            _joined(
+                (
+                    f"{security_passes}/{security.evaluated_cases} pass; attack ",
+                    f"success {_whole_percent(security.attack_success_rate)}; ",
+                    f"marker leakage {marker_leaks}.",
+                )
+            ),
+            "Deterministic adversarial fixtures/provider.",
+        ),
+        (
+            "Quality",
+            _joined(
+                (
+                    f"{quality_passes}/{quality.evaluated_cases} pass; evidence ",
+                    f"coverage {_whole_percent(quality.evidence_coverage)}; ",
+                    "unsupported critique ",
+                    f"{_whole_percent(quality.unsupported_critique_rate)}.",
+                )
+            ),
+            "Controlled scientific fixtures.",
+        ),
+        (
+            "Runtime",
+            _joined(
+                (
+                    f"{runtime.valid_completion_count}/{runtime.paper_count} valid; ",
+                    f"{runtime.total_seconds:.3f} seconds.",
+                )
+            ),
+            "Local synthetic provider; excludes hosted-model inference and network latency.",
+        ),
+    )
+    pdf.setFont("Helvetica-Bold", 10.0)
+    pdf.drawString(LEFT, y, "Measured results at a glance")
+    y -= 15.0
+    column_widths = (62.0, 250.0, 212.0)
+    header_height = 17.0
+    row_height = 34.0
+    table_height = header_height + row_height * len(rows)
+    table_bottom = y - table_height
+    pdf.rect(LEFT, table_bottom, RIGHT - LEFT, table_height)
+    x = LEFT
+    for column_width in column_widths[:-1]:
+        x += column_width
+        pdf.line(x, table_bottom, x, y)
+    pdf.line(LEFT, y - header_height, RIGHT, y - header_height)
+    for row_index in range(1, len(rows)):
+        row_y = y - header_height - row_height * row_index
+        pdf.line(LEFT, row_y, RIGHT, row_y)
+    header_x = LEFT
+    for header, column_width in zip(("Lens", "Measured result", "Scope"), column_widths, strict=True):
+        _draw_table_cell(pdf, header, header_x, y, column_width, bold=True)
+        header_x += column_width
+    row_top = y - header_height
+    for label, result, scope in rows:
+        cell_x = LEFT
+        for cell_text, column_width in zip(
+            (label, result, scope), column_widths, strict=True
+        ):
+            _draw_table_cell(
+                pdf,
+                cell_text,
+                cell_x,
+                row_top,
+                column_width,
+                bold=cell_text == label,
+            )
+            cell_x += column_width
+        row_top -= row_height
+    return table_bottom - 8.0
+
+
+def _draw_page(
+    pdf: _PdfCanvas,
+    page: _ReportPage,
+    page_number: int,
+    metrics: ReportMetrics,
+) -> None:
     pdf.setFont("Helvetica-Bold", 7.5)
     pdf.drawString(LEFT, 770.0, "ANONYMOUS TECHNICAL REPORT")
     pdf.drawRightString(RIGHT, 770.0, f"Page {page_number}")
@@ -234,6 +402,10 @@ def _draw_page(pdf: _PdfCanvas, page: _ReportPage, page_number: int) -> None:
         for paragraph in section.paragraphs:
             y = _draw_paragraph(pdf, paragraph, y)
         y -= 6.0
+    if page_number == 2:
+        y = _draw_architecture_diagram(pdf, y)
+    if page_number == 3:
+        y = _draw_results_table(pdf, metrics, y)
     if y < BOTTOM:
         raise _ReportLayoutError(page_heading=page.heading)
     pdf.showPage()
@@ -249,7 +421,7 @@ def build_report(metrics_dir: Path, output: Path) -> Path:
     pdf.setSubject("Evidence-grounded review under hidden human evaluation")
     pdf.setTitle(TITLE)
     for page_number, page in enumerate(_make_pages(metrics), start=1):
-        _draw_page(pdf, page, page_number)
+        _draw_page(pdf, page, page_number, metrics)
     pdf.save()
     return output
 

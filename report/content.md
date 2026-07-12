@@ -48,4 +48,4 @@ Authenticated event retrieval and submission, hosted-provider rate limits and qu
 - Post-hoc correlation on a small batch would have high uncertainty.
 
 ## Conclusion
-ReviewHarness is locally production-ready for the verified CLI, schema, security, full/fast, fallback, and bounded-batch surfaces. Its proof boundary remains explicit: evidence and proxy metrics are measured locally, while live-event behavior and hidden human alignment remain unavailable until exercised by organizers.
+ReviewHarness is locally verified for the CLI, schema, security, full/fast, fallback, and bounded-batch surfaces. Its proof boundary remains explicit: evidence and proxy metrics are measured locally, while live-event behavior and hidden human alignment remain unavailable until exercised by organizers.
