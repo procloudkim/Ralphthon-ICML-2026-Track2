@@ -159,11 +159,14 @@ class ReviewerOrchestrator:
         provider: ReviewerProvider,
         prompts: ReviewerPrompts,
         timeout_seconds: float = 120.0,
+        *,
+        retry_failures: bool = True,
     ) -> None:
         """Bind one provider, trusted prompt set, and call policy."""
         self._provider = provider
         self._prompts = prompts
         self._timeout_seconds = timeout_seconds
+        self._retry_failures = retry_failures
 
     async def run(
         self,
@@ -189,7 +192,7 @@ class ReviewerOrchestrator:
     ) -> ReviewerOutcome:
         provider_request = self._provider_request(lens, run_request)
         first = await self._attempt(lens, provider_request, limiter, attempts=1)
-        if first.retryable:
+        if self._retry_failures and first.retryable:
             return await self._attempt(lens, provider_request, limiter, attempts=2)
         return first
 

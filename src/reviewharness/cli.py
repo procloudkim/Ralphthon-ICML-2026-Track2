@@ -15,6 +15,7 @@ from .eval_quality import run_quality_evaluation
 from .eval_runtime import run_runtime_evaluation
 from .eval_security import run_security_evaluation
 from .kernel import KernelReviewError, ReviewKernel
+from .live_cli import live_command
 from .runner import BatchConfig, BatchSummary, run_batch
 from .schemas import NonEmptyStr, ReviewSubmission, TrustedAssignment
 
@@ -64,6 +65,7 @@ app = typer.Typer(
     callback=_root,
     no_args_is_help=True,
 )
+_ = app.command("live")(live_command)
 
 
 def _fail(code: str) -> Never:

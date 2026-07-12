@@ -41,6 +41,16 @@ class KernelReviewError(RuntimeError):
         return f"paper review failed for {self.paper_id}: {self.failure_kind}"
 
 
+@dataclass(frozen=True, slots=True)
+class ReviewKernelPolicy:
+    """Trusted provider-call and fallback policy for one kernel instance."""
+
+    timeout_seconds: float = 120.0
+    require_reviewer_output: bool = False
+    retry_reviewer_failures: bool = True
+    confidence_cap: int | None = None
+
+
 def _fallback(*, degraded: bool) -> schemas.ScoreProposal:
     return schemas.ScoreProposal(
         reviewer="trusted-local-fallback",
@@ -60,7 +70,12 @@ def _fallback(*, degraded: bool) -> schemas.ScoreProposal:
 class ReviewKernel:
     """Compose the capability-limited local review pipeline for one paper."""
 
-    __slots__ = ("_orchestrator", "_rubric")
+    __slots__ = (
+        "_confidence_cap",
+        "_orchestrator",
+        "_require_reviewer_output",
+        "_rubric",
+    )
 
     def __init__(
         self,
@@ -68,16 +83,20 @@ class ReviewKernel:
         *,
         rubric: RubricConfig | None = None,
         prompts_directory: Path = _PROMPTS,
-        timeout_seconds: float = 120.0,
+        policy: ReviewKernelPolicy | None = None,
     ) -> None:
         """Bind trusted rubric/prompts and a capability-limited provider."""
         selected = LocalHeuristicProvider() if provider is None else provider
+        selected_policy = ReviewKernelPolicy() if policy is None else policy
         self._rubric = load_rubric() if rubric is None else rubric
+        self._require_reviewer_output = selected_policy.require_reviewer_output
+        self._confidence_cap = selected_policy.confidence_cap
         prompts = reviewers.ReviewerPrompts.from_directory(prompts_directory)
         self._orchestrator = reviewers.ReviewerOrchestrator(
             selected,
             prompts,
-            timeout_seconds,
+            selected_policy.timeout_seconds,
+            retry_failures=selected_policy.retry_reviewer_failures,
         )
 
     async def review(
@@ -128,6 +147,11 @@ class ReviewKernel:
             limiter,
         )
         reviewer_data = support.collect_reviewer_data(run)
+        if self._require_reviewer_output and not reviewer_data.outputs:
+            raise KernelReviewError(
+                assignment.paper_id,
+                "reviewer_provider_unavailable",
+            )
         ledger = claims.build_claim_ledger(reviewer_data.claims, prepared.blocks)
         linked_findings = support.relink_findings(
             reviewer_data.findings,
@@ -158,6 +182,22 @@ class ReviewKernel:
             ),
             self._rubric,
         )
+        if (
+            self._confidence_cap is not None
+            and calibration.scores.confidence > self._confidence_cap
+        ):
+            capped_scores = calibration.scores.model_copy(
+                update={"confidence": self._confidence_cap}
+            )
+            calibration = calibration.model_copy(
+                update={
+                    "scores": capped_scores,
+                    "rationale": (
+                        f"{calibration.rationale} Confidence is capped for "
+                        "heuristic fallback."
+                    ),
+                }
+            )
         comment = formatter.build_review_comment(
             ledger,
             resolution.retained,
