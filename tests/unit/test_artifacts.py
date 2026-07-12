@@ -35,7 +35,7 @@ def test_write_text_preserves_utf8_and_redacts_common_secrets(
     source = (
         "Résumé: café\n"
         "Authorization: Bearer top-secret-token\n"
-        "OPENAI_API_KEY=sk-live-value-123456789\n"
+        "API_KEY=TEST_SECRET_VALUE_DO_NOT_USE\n"
     )
 
     # When
@@ -45,7 +45,7 @@ def test_write_text_preserves_utf8_and_redacts_common_secrets(
     persisted = record.path.read_text(encoding="utf-8")
     assert "Résumé: café" in persisted
     assert "top-secret-token" not in persisted
-    assert "sk-live-value-123456789" not in persisted
+    assert "TEST_SECRET_VALUE_DO_NOT_USE" not in persisted
     assert persisted.count("[REDACTED]") == 2
 
 
