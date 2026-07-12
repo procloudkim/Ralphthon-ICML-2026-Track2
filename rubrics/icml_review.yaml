@@ -1,0 +1,72 @@
+version: icml-2026-ralphthon-v1
+scope: ICML-style short research papers
+
+scores:
+  soundness:
+    range: [1, 4]
+    anchors:
+      4: "Excellent: central claims are strongly supported and no substantive technical weakness remains."
+      3: "Good: central claims are mostly supported; gaps are limited and non-fatal."
+      2: "Fair: material methodology or evaluation weaknesses affect one or more central claims."
+      1: "Poor: a central claim is unsupported, a critical flaw exists, or the evaluation cannot establish the result."
+
+  presentation:
+    range: [1, 4]
+    anchors:
+      4: "Excellent: clear, well structured, well contextualized, and sufficiently detailed for expert understanding and reproduction."
+      3: "Good: coherent and understandable with limited clarity or completeness issues."
+      2: "Fair: important definitions, comparisons, sections, or explanations are unclear."
+      1: "Poor: the contribution or evaluation cannot be reliably understood."
+
+  significance:
+    range: [1, 4]
+    anchors:
+      4: "Excellent: strong potential to materially influence understanding, capabilities, or practice."
+      3: "Good: meaningful contribution to an identifiable area with plausible future use."
+      2: "Fair: narrow, incremental, or insufficiently demonstrated impact."
+      1: "Poor: little demonstrated relevance or contribution."
+
+  originality:
+    range: [1, 4]
+    anchors:
+      4: "Excellent: clearly justified new insight, method, task, data, theory, or perspective."
+      3: "Good: meaningful new contribution or a well-justified novel combination."
+      2: "Fair: primarily incremental or novelty is insufficiently distinguished."
+      1: "Poor: contribution appears known, unclear, or unsupported as novel."
+
+  overall_recommendation:
+    range: [1, 6]
+    anchors:
+      6: "Strong Accept: exceptional impact, technically excellent, strongly evaluated, and no unresolved substantive issue."
+      5: "Accept: technically solid and meaningful, with good evaluation and no unresolved major concern."
+      4: "Weak Accept: buildable contribution with identifiable but non-fatal limitations; use sparingly."
+      3: "Weak Reject: clear merits, but decision-relevant weaknesses currently outweigh them; use sparingly."
+      2: "Reject: major technical, evaluation, reproducibility, ethical, or clarity weaknesses prevent reliable use."
+      1: "Strong Reject: uninterpretable, critically invalid, effectively known, or severely flawed."
+
+  confidence:
+    range: [1, 5]
+    anchors:
+      5: "Absolutely certain; deeply familiar and details carefully checked."
+      4: "Confident, with a small chance of misunderstanding or missing related work."
+      3: "Fairly confident; some parts or related work may be misunderstood or unchecked."
+      2: "Defensible but substantial uncertainty remains."
+      1: "Educated guess due to domain mismatch or inability to verify central details."
+
+policies:
+  extreme_scores_require_extreme_evidence: true
+  weak_accept_and_weak_reject_use_sparingly: true
+  confidence_is_not_paper_quality: true
+  do_not_average_reviewer_scores: true
+  require_evidence_for_major_factual_findings: true
+  preserve_verified_minority_findings: true
+  injection_detection_is_not_a_scientific_penalty: true
+
+consistency_guards:
+  - "soundness == 1 implies overall_recommendation <= 2"
+  - "verified critical finding implies overall_recommendation <= 3"
+  - "overall_recommendation >= 5 requires soundness >= 3"
+  - "overall_recommendation >= 5 requires significance >= 3"
+  - "overall_recommendation >= 5 requires no unresolved major finding"
+  - "overall_recommendation == 6 requires soundness == 4"
+  - "overall_recommendation == 6 requires significance == 4"

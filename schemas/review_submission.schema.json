@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reviewharness.local/schemas/review_submission.schema.json",
+  "title": "ReviewSubmission",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "paper_id",
+    "soundness",
+    "presentation",
+    "significance",
+    "originality",
+    "overall_recommendation",
+    "confidence",
+    "comment"
+  ],
+  "properties": {
+    "paper_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "soundness": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+    },
+    "presentation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+    },
+    "significance": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+    },
+    "originality": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4
+    },
+    "overall_recommendation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 6
+    },
+    "confidence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "comment": {
+      "type": "string",
+      "minLength": 100,
+      "maxLength": 12000
+    }
+  }
+}

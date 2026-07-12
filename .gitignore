@@ -1,0 +1,48 @@
+# Secrets and environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*token*
+*cookie*
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Private event inputs and generated runs
+runs/
+assignments/
+private_papers/
+submissions/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Model and trace caches
+.cache/
+.wandb/
+wandb/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Report build products
+report/*.aux
+report/*.bbl
+report/*.blg
+report/*.log
+report/*.out
+report/*.synctex.gz

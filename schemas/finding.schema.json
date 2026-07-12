@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reviewharness.local/schemas/finding.schema.json",
+  "title": "ReviewFinding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "finding_id",
+    "category",
+    "judgment_type",
+    "severity",
+    "status",
+    "statement",
+    "evidence",
+    "central_claim_impact",
+    "decision_relevance",
+    "confidence"
+  ],
+  "properties": {
+    "finding_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1
+    },
+    "judgment_type": {
+      "enum": [
+        "objective",
+        "subjective",
+        "mixed"
+      ]
+    },
+    "severity": {
+      "enum": [
+        "critical",
+        "major",
+        "minor",
+        "observation"
+      ]
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "consensus_supported",
+        "minority_supported",
+        "contested",
+        "unsupported_rejected",
+        "unsupported_hypothesis",
+        "subjective_divergence",
+        "parser_uncertain"
+      ]
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_claim_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "page",
+          "summary"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "section": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locator": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "block_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "central_claim_impact": {
+      "enum": [
+        "direct",
+        "indirect",
+        "none",
+        "uncertain"
+      ]
+    },
+    "decision_relevance": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "recommended_check": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "priority": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}

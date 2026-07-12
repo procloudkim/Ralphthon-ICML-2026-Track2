@@ -1,0 +1,25 @@
+{
+  "package": "reviewharness-canonical-seed",
+  "date": "2026-07-12",
+  "purpose": "Canonical MECE repository seed for Codex CLI Ralphthon Track 2",
+  "files": [
+    ".agent/PLANS.md",
+    ".agent/RALPHTHON_EXECPLAN.md",
+    ".gitignore",
+    "AGENTS.md",
+    "EXPERIMENTS.jsonl",
+    "PROGRESS.md",
+    "RALPH_GOAL.md",
+    "README.md",
+    "START_CODEX.md",
+    "docs/CODEX_PREFLIGHT.md",
+    "docs/EVALUATION_SPEC.md",
+    "docs/EVENT_CONTEXT.md",
+    "docs/REPORT_SPEC.md",
+    "docs/REVIEW_SPEC.md",
+    "docs/SECURITY_THREAT_MODEL.md",
+    "rubrics/icml_review.yaml",
+    "schemas/finding.schema.json",
+    "schemas/review_submission.schema.json"
+  ]
+}
