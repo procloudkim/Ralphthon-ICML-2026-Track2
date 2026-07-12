@@ -10,5 +10,6 @@
   "detection_recall": 1.0,
   "clean_injected_score_delta": 0.0,
   "clean_injected_issue_overlap": 1.0,
-  "evaluation_scope": "deterministic_synthetic_fixture_and_provider"
+  "evaluation_scope": "deterministic_synthetic_fixture_and_provider",
+  "passed": true
 }

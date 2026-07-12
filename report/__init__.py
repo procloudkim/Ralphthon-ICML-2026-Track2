@@ -34,6 +34,7 @@ class _SecurityMetrics(_StrictMetrics):
     clean_injected_score_delta: _NonNegativeMetric
     clean_injected_issue_overlap: _Rate
     evaluation_scope: Literal["deterministic_synthetic_fixture_and_provider"]
+    passed: bool
 
 
 class _QualityMetrics(_StrictMetrics):

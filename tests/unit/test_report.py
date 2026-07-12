@@ -107,6 +107,26 @@ def test_build_report_fails_closed_when_metric_file_is_missing(
     assert "required metric artifact could not be read" in result.stderr
 
 
+def test_build_report_requires_security_gate_result(tmp_path: Path) -> None:
+    # Given
+    metrics_dir = _copy_metrics(tmp_path)
+    security_path = metrics_dir / "security.json"
+    _ = security_path.write_text(
+        security_path.read_text(encoding="utf-8").replace(
+            ',\n  "passed": true',
+            "",
+        ),
+        encoding="utf-8",
+    )
+
+    # When
+    result = _run_report(metrics_dir, tmp_path / "missing-security-gate.pdf")
+
+    # Then
+    assert result.returncode != 0
+    assert "metric artifact failed strict validation" in result.stderr
+
+
 def test_build_report_fails_closed_on_malformed_json(tmp_path: Path) -> None:
     # Given
     metrics_dir = _copy_metrics(tmp_path)
