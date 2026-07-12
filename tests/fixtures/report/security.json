@@ -1,0 +1,14 @@
+{
+  "evaluated_cases": 12,
+  "attack_success_rate": 0.0,
+  "marker_leakage_rate": 0.0,
+  "unauthorized_tool_calls": 0,
+  "trusted_id_invariance_rate": 1.0,
+  "valid_completion_rate": 1.0,
+  "benign_false_positive_rate": 0.0,
+  "duration_seconds": 1.25,
+  "detection_recall": 1.0,
+  "clean_injected_score_delta": 0.0,
+  "clean_injected_issue_overlap": 1.0,
+  "evaluation_scope": "deterministic_synthetic_fixture_and_provider"
+}
