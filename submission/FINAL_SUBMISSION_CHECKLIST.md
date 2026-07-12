@@ -1,0 +1,22 @@
+- [ ] PDF exists
+- [ ] PDF opens
+- [ ] PDF page count <= 4
+- [ ] Every PDF page visually inspected
+- [ ] PDF is anonymous
+- [ ] PDF metadata contains no identity
+- [ ] PDF title matches title.txt
+- [ ] Abstract matches abstract.txt
+- [ ] No fabricated metrics
+- [ ] Repository URL opens
+- [ ] README run command verified
+- [ ] Latest commit pushed
+- [ ] No secrets or private PDFs tracked
+- [ ] OpenReview Readers = everyone
+- [ ] OpenReview Signatures = Ralphthon ICML 2026 Participants
+- [ ] Edit History Readers = Ralphthon ICML 2026 Organizers
+- [ ] Edit History Signatures = Ralphthon ICML 2026 Participants
+- [ ] PDF selected in submission form
+- [ ] Title pasted
+- [ ] Abstract pasted
+- [ ] Submission completed before 16:30
+- [ ] Submission confirmation/status verified

@@ -1,0 +1,11 @@
+Prerequisites: Python 3.12 and uv.
+
+Install:
+uv sync --locked --python 3.12
+
+Review one paper and validate the result:
+uv run python -m reviewharness review tests/fixtures/clean/sample.pdf --paper-id SAMPLE-001 --mode full --output runs/qa/single/review.json
+uv run python -m reviewharness validate runs/qa/single/review.json
+
+Optional ten-paper batch:
+uv run python -m reviewharness batch tests/fixtures/batch/assignments.json --output-dir runs/qa/batch --deadline-seconds 1500 --paper-concurrency 5 --llm-concurrency 10

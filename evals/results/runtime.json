@@ -1,0 +1,15 @@
+{
+  "paper_count": 10,
+  "valid_completion_count": 10,
+  "total_seconds": 0.4539999999979045,
+  "p50_seconds": 0.180000000007567,
+  "p95_seconds": 0.28099999998812564,
+  "timeout_count": 0,
+  "retry_count": 0,
+  "fast_mode_fallback_count": 0,
+  "invalid_output_count": 0,
+  "failure_isolation_passed": true,
+  "full_mode_executed": true,
+  "fast_mode_executed": true,
+  "monotonic_deadline": true
+}

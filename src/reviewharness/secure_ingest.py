@@ -15,7 +15,11 @@ from .schemas import InjectionClassification
 InstructionCategory = InjectionClassification
 
 CANARY_PATTERN: Final = re.compile(
-    r"\b(?:marker phrase|canary|RH_[A-Z0-9_]+)\b", re.IGNORECASE
+    (
+        r"\b(?:marker phrase|canary|RH_[A-Z0-9_]+)\b"
+        r"|\b(?:include|print|emit|output|write)\b.{0,80}\b(?:exact )?phrase\b"
+    ),
+    re.IGNORECASE,
 )
 ZERO_WIDTH_PATTERN: Final = re.compile("[\u200b\u200c\u200d\ufeff]")
 TINY_TEXT_POINTS: Final = 2.0
@@ -38,9 +42,11 @@ CONTROL_FRAGMENTS: Final = (
     "ignore prior instructions",
     "ignore previous instructions",
     "omit all weaknesses",
+    "do not mention any weaknesses",
     "skip criticism",
 )
 SECRET_FRAGMENTS: Final = (
+    "api key",
     "reveal secrets",
     "leak environment",
     "environment variables",

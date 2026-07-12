@@ -1,0 +1,16 @@
+{
+  "evaluated_cases": 5,
+  "evidence_coverage": 1.0,
+  "unsupported_critique_rate": 0.0,
+  "issue_precision": 1.0,
+  "issue_recall": 1.0,
+  "minority_preservation_rate": 1.0,
+  "score_comment_consistency_rate": 1.0,
+  "valid_completion_rate": 1.0,
+  "repeatability_rate": 1.0,
+  "top_issue_stability_rate": 1.0,
+  "duration_seconds": 0.030015500000445172,
+  "passed": true,
+  "human_correlation": null,
+  "human_correlation_unavailable_reason": "human labels and private judge heuristics were unavailable during development"
+}

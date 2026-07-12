@@ -1,0 +1,9 @@
+{
+  "artifact_path": "final_review.json",
+  "media_type": "application/json",
+  "paper_id": "SAMPLE-003",
+  "schema_version": 1,
+  "sha256": "633b606ce1dc2bbbaf9736ff1adc604856f4ca01d2603427c0a8e26a0bc5dfa4",
+  "size_bytes": 2043,
+  "stage": "final_review"
+}

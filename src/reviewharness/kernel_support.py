@@ -2,6 +2,7 @@
 
 import json
 import re
+import unicodedata
 from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass
@@ -65,6 +66,42 @@ class KernelTrace:
     resolution: evidence.EvidenceResolution
     calibration: schemas.ScoreCalibration
     submission: schemas.ReviewSubmission
+
+
+def relink_findings(
+    findings: Sequence[schemas.ReviewFinding],
+    provider_claims: Sequence[schemas.PaperClaim],
+    ledger: Sequence[schemas.PaperClaim],
+) -> tuple[schemas.ReviewFinding, ...]:
+    """Resolve provider claim targets exclusively to normalized ledger IDs."""
+    ledger_by_statement: dict[str, set[str]] = {}
+    for claim in ledger:
+        ledger_by_statement.setdefault(_claim_key(claim.statement), set()).add(
+            claim.claim_id
+        )
+    provider_matches: dict[str, set[str]] = {}
+    for claim in provider_claims:
+        matches = ledger_by_statement.get(_claim_key(claim.statement), set())
+        provider_matches.setdefault(claim.claim_id, set()).update(matches)
+    provider_targets = {
+        claim_id: next(iter(matches))
+        for claim_id, matches in provider_matches.items()
+        if len(matches) == 1
+    }
+    linked: list[schemas.ReviewFinding] = []
+    for finding in findings:
+        target = finding.target_claim_id
+        resolved = provider_targets.get(target) if target is not None else None
+        linked.append(finding.model_copy(update={"target_claim_id": resolved}))
+    return tuple(linked)
+
+
+def _claim_key(statement: str) -> str:
+    normalized = unicodedata.normalize("NFKC", statement).casefold()
+    visible = "".join(
+        character for character in normalized if unicodedata.category(character) != "Cf"
+    )
+    return " ".join(re.findall(r"\w+", visible))
 
 
 def _model_json(model: BaseModel) -> artifacts.JsonValue:

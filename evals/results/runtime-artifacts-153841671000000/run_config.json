@@ -1,0 +1,6 @@
+{
+  "deadline_seconds": 1500.0,
+  "paper_concurrency": 5,
+  "model_call_concurrency": 10,
+  "clock": "time.monotonic"
+}

@@ -108,7 +108,11 @@ class ReviewKernel:
         output_dir: Path,
         shared_limiter: anyio.CapacityLimiter | None,
     ) -> schemas.ReviewSubmission:
-        ingest = await run_sync(secure_ingest.ingest_pdf, assignment.pdf_path)
+        ingest = await run_sync(
+            secure_ingest.ingest_pdf,
+            assignment.pdf_path,
+            abandon_on_cancel=True,
+        )
         prepared = support.prepare_evidence(ingest)
         limiter = (
             anyio.CapacityLimiter(_CALLS[mode])
@@ -125,8 +129,13 @@ class ReviewKernel:
         )
         reviewer_data = support.collect_reviewer_data(run)
         ledger = claims.build_claim_ledger(reviewer_data.claims, prepared.blocks)
-        resolution = evidence.verify_and_resolve(
+        linked_findings = support.relink_findings(
             reviewer_data.findings,
+            reviewer_data.claims,
+            ledger,
+        )
+        resolution = evidence.verify_and_resolve(
+            linked_findings,
             prepared.blocks,
             ledger,
         )

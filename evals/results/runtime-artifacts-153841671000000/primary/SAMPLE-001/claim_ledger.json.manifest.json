@@ -1,0 +1,9 @@
+{
+  "artifact_path": "claim_ledger.json",
+  "media_type": "application/json",
+  "paper_id": "SAMPLE-001",
+  "schema_version": 1,
+  "sha256": "703acaa3a56e8546f4bed983a6a940a1e46a1ac5dea64c24e50869c06a1c59f6",
+  "size_bytes": 342,
+  "stage": "claim_ledger"
+}

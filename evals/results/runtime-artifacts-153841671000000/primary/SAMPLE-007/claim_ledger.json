@@ -1,0 +1,16 @@
+[
+  {
+    "claim_id": "C-5654952F2A7E",
+    "claim_type": "dataset",
+    "importance": "central",
+    "reported_evidence": [
+      {
+        "block_id": "p1-b2-l0",
+        "locator": "p1-b2-l0",
+        "page": 1,
+        "section": "Abstract"
+      }
+    ],
+    "statement": "We evaluate a compact classifier on two public datasets."
+  }
+]

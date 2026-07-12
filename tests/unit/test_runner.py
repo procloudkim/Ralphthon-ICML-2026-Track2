@@ -1,8 +1,9 @@
 from collections.abc import Sequence
 from pathlib import Path
-from typing import final
+from typing import ClassVar, final
 
 import anyio
+from pydantic import BaseModel, ConfigDict
 
 from reviewharness.deadline import ReviewMode
 from reviewharness.providers import ProviderCallError
@@ -10,16 +11,38 @@ from reviewharness.runner import (
     BatchConfig,
     BatchStatus,
     BatchSummary,
+    ReviewFailureCode,
     run_batch,
 )
 from reviewharness.schemas import ReviewSubmission, TrustedAssignment
 
 
+class _CompletionResult(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        extra="forbid", frozen=True, strict=True
+    )
+
+    elapsed_seconds: float
+    error_code: ReviewFailureCode | None
+    mode: ReviewMode | None
+    status: BatchStatus
+    used_fallback: bool
+
+
+class _CompletionEnvelope(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        extra="forbid", frozen=True, strict=True
+    )
+
+    paper_directory: str
+    paper_id: str
+    result: _CompletionResult
+
+
 def _assignments(count: int) -> tuple[TrustedAssignment, ...]:
     return tuple(
         TrustedAssignment(
-            paper_id=f"PAPER-{index:02d}",
-            pdf_path=Path(f"paper-{index:02d}.pdf"),
+            paper_id=f"PAPER-{index:02d}", pdf_path=Path(f"paper-{index:02d}.pdf")
         )
         for index in range(count)
     )
@@ -28,12 +51,8 @@ def _assignments(count: int) -> tuple[TrustedAssignment, ...]:
 def _submission(paper_id: str) -> ReviewSubmission:
     return ReviewSubmission(
         paper_id=paper_id,
-        soundness=3,
-        presentation=3,
-        significance=3,
-        originality=3,
-        overall_recommendation=4,
-        confidence=3,
+        soundness=3, presentation=3, significance=3, originality=3,
+        overall_recommendation=4, confidence=3,
         comment=(
             "The paper presents a clearly scoped contribution. The available "
             "evidence supports a cautious positive assessment, while the final "
@@ -52,6 +71,10 @@ class ManualClock:
 
     def advance(self, seconds: float) -> None:
         self.current += seconds
+
+
+class UnexpectedReviewerError(Exception):
+    pass
 
 
 def _config(
@@ -141,7 +164,7 @@ class FakeReviewer:
         if (assignment.paper_id, f"{label}:os") in self._failures:
             raise OSError
         if (assignment.paper_id, "crash") in self._failures:
-            raise RuntimeError
+            raise UnexpectedReviewerError
         if (assignment.paper_id, label) in self._failures:
             raise TimeoutError
         return _submission(assignment.paper_id)
@@ -221,7 +244,7 @@ def test_completion_stream_is_ready_order_while_summary_is_input_order(
     )
 
 
-def test_full_fast_fallback_isolates_runtime_provider_value_and_os_failures(
+def test_full_fast_fallback_and_unexpected_failure_keep_siblings_running(
     tmp_path: Path,
 ) -> None:
     # Given
@@ -234,6 +257,7 @@ def test_full_fast_fallback_isolates_runtime_provider_value_and_os_failures(
             "PAPER-03": ("full:provider", "fast:provider"),
             "PAPER-04": ("full:value", "fast:value"),
             "PAPER-05": ("full:os", "fast:os"),
+            "PAPER-06": ("crash",),
         }.items()
         for label in labels
     )
@@ -242,19 +266,30 @@ def test_full_fast_fallback_isolates_runtime_provider_value_and_os_failures(
     # When
     summary = anyio.run(
         run_batch,
-        _assignments(7),
+        _assignments(8),
         reviewer,
-        _config(ManualClock(), papers=7, models=7),
+        _config(ManualClock(), papers=8, models=8),
         tmp_path,
     )
 
     # Then
     assert summary.items[2].status is BatchStatus.COMPLETED
     assert summary.items[2].used_fallback
-    assert all(item.status is BatchStatus.FAILED for item in summary.items[3:6])
-    assert summary.items[6].status is BatchStatus.COMPLETED
-    assert (summary.completed_count, summary.failed_count) == (3, 4)
+    assert all(item.status is BatchStatus.FAILED for item in summary.items[3:7])
+    assert summary.items[6].error_code == "review_failed"
+    assert summary.items[7].status is BatchStatus.COMPLETED
+    assert (summary.completed_count, summary.failed_count) == (3, 5)
     assert summary.fallback_count == 6
+    receipts = tuple(
+        _CompletionEnvelope.model_validate_json(line)
+        for line in summary.completion_path.read_text(encoding="utf-8").splitlines()
+    )
+    unexpected = tuple(
+        receipt for receipt in receipts if receipt.paper_id == "PAPER-06"
+    )
+    assert len(unexpected) == 1
+    assert unexpected[0].result.status is BatchStatus.FAILED
+    assert unexpected[0].result.error_code is ReviewFailureCode.REVIEW_FAILED
 
 
 def test_monotonic_deadline_switches_failed_full_attempt_to_fast(
@@ -282,19 +317,21 @@ def test_monotonic_deadline_switches_failed_full_attempt_to_fast(
     assert summary.items[0].elapsed_seconds == 601.0
 
 
-def test_rerun_reuses_valid_review_without_duplicate_event(tmp_path: Path) -> None:
+def test_rerun_reprocesses_changed_assignment_instead_of_using_cache(
+    tmp_path: Path,
+) -> None:
     # Given
-    assignments = _assignments(1)
     config = _config(ManualClock(), papers=1, models=1)
-    _ = anyio.run(run_batch, assignments, FakeReviewer(), config, tmp_path)
-    failing_reviewer = FakeReviewer(
-        failures=frozenset({("PAPER-00", "full")}),
+    _ = anyio.run(run_batch, _assignments(1), FakeReviewer(), config, tmp_path)
+    changed_assignment = (
+        TrustedAssignment(paper_id="PAPER-00", pdf_path=Path("replacement.pdf")),
     )
+    reviewer = FakeReviewer()
 
     # When
-    summary = anyio.run(run_batch, assignments, failing_reviewer, config, tmp_path)
+    summary = anyio.run(run_batch, changed_assignment, reviewer, config, tmp_path)
 
     # Then
-    assert summary.items[0].status is BatchStatus.CACHED
-    assert failing_reviewer.calls == []
+    assert summary.items[0].status is BatchStatus.COMPLETED
+    assert reviewer.calls == [("PAPER-00", "full")]
     assert len(summary.completion_path.read_text("utf-8").splitlines()) == 1

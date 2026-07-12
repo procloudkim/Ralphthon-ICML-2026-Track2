@@ -1,0 +1,9 @@
+{
+  "artifact_path": "score_trace.json",
+  "media_type": "application/json",
+  "paper_id": "SAMPLE-009",
+  "schema_version": 1,
+  "sha256": "d853835b9374c6832054911e8758163be2b5e5a2974f9dad1eb329a1f9c2d6c1",
+  "size_bytes": 658,
+  "stage": "score_trace"
+}

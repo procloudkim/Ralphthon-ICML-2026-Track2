@@ -1,0 +1,9 @@
+{
+  "artifact_path": "rejected_findings.json",
+  "media_type": "application/json",
+  "paper_id": "SAMPLE-006",
+  "schema_version": 1,
+  "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+  "size_bytes": 3,
+  "stage": "rejected_findings"
+}

@@ -1,0 +1,23 @@
+PDF:
+submission/reviewharness_technical_report.pdf
+
+Title:
+ReviewHarness: Injection-Resilient Evidence-Weighted Review under Hidden Human Evaluation
+
+Abstract:
+Large language models can generate abundant criticism of research papers, but reliable peer review requires determining which criticisms are evidence-supported, decision-relevant, and robust to manipulation. We present ReviewHarness, an ICML-style review agent for settings where human reviewer labels and reviewer-specific heuristics are unavailable during development. Independent review perspectives assess methodological soundness, evidence and reproducibility, and significance, originality, and presentation. Candidate findings are verified against paper-local evidence and resolved without simple majority voting: reviewer agreement informs confidence, while evidence strength and impact on central claims determine priority. The system preserves supported minority findings, rejects unsupported factual criticism, and maps verified findings to official ICML ordinal score anchors. To mitigate document-borne prompt injection, ReviewHarness treats paper content as untrusted evidence and isolates it from tools, credentials, scoring logic, and submission control. Suspicious instructions are quarantined without automatically penalizing scientific merit. Bounded parallelism, per-paper failure isolation, and a fast fallback mode address the ten-paper, twenty-five-minute production constraint. Because human judge labels are hidden during development, evaluation focuses on measurable proxies: rubric fidelity, evidence coverage, unsupported-critique rate, score-comment consistency, injection invariance, and runtime reliability. Human-agent score agreement is evaluated post hoc by the organizers.
+
+Readers:
+everyone
+
+Signatures:
+Ralphthon ICML 2026 Participants
+
+Edit History Readers:
+Ralphthon ICML 2026 Organizers
+
+Edit History Signatures:
+Ralphthon ICML 2026 Participants
+
+Repository:
+https://github.com/procloudkim/Ralphthon-ICML-2026-Track2

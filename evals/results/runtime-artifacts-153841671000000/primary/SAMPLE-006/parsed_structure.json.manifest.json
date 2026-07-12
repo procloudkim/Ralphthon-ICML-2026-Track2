@@ -1,0 +1,9 @@
+{
+  "artifact_path": "parsed_structure.json",
+  "media_type": "application/json",
+  "paper_id": "SAMPLE-006",
+  "schema_version": 1,
+  "sha256": "b4fc8258e7ed5967050ba73cdfd73a3f38000bb2af775557e7eadfc490c348f2",
+  "size_bytes": 2120,
+  "stage": "parsed_structure"
+}

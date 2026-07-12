@@ -1,0 +1,26 @@
+[
+  {
+    "category": "evaluation_scope",
+    "central_claim_impact": "direct",
+    "confidence": 0.67875,
+    "decision_relevance": "high",
+    "evidence": [
+      {
+        "block_id": "p2-b4-l0",
+        "locator": "p2-b4-l0",
+        "page": 2,
+        "section": null,
+        "summary": "The study covers classification and two datasets only."
+      }
+    ],
+    "finding_id": "LOCAL-EVALUATION_SCOPE-2",
+    "judgment_type": "mixed",
+    "priority": 0.96,
+    "recommended_check": "Address the documented evaluation scope limitation with targeted evidence.",
+    "reviewer": "tri_lens",
+    "severity": "major",
+    "statement": "The paper explicitly states a evaluation scope limitation.",
+    "status": "minority_supported",
+    "target_claim_id": "C-5654952F2A7E"
+  }
+]

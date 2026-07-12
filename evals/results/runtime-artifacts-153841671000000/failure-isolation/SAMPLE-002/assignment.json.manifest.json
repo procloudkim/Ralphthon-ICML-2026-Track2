@@ -1,0 +1,9 @@
+{
+  "artifact_path": "assignment.json",
+  "media_type": "application/json",
+  "paper_id": "SAMPLE-002",
+  "schema_version": 1,
+  "sha256": "87b5090ede620b3546aae9bc25724fa2f6cb35e1f4d5a0ea153f1c6033a73eb7",
+  "size_bytes": 214,
+  "stage": "assignment"
+}

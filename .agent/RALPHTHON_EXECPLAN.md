@@ -1,6 +1,6 @@
 # ReviewHarness Ralphthon Track 2 ExecPlan
 
-Status: NOT STARTED
+Status: P0 LOCALLY COMPLETE; LIVE EVENT/HOSTED PROVIDER UNVERIFIED
 Date: 2026-07-12
 Timezone: Asia/Seoul
 
@@ -137,6 +137,15 @@ In full mode these perspectives run independently and concurrently. They must no
 Every retained critical or major factual finding must include a real locator, accurate evidence summary, affected claim, severity, decision impact, recommended check, and confidence.
 
 Use an internal structure compatible with `schemas/finding.schema.json`.
+
+The canonical finding JSON Schema is an interchange and persisted-artifact
+compatibility shape, not a complete retention policy. At runtime, evidence
+resolution verifies paper-local locators against parsed blocks and resolves a
+finding's `target_claim_id` through the claim ledger before assigning claim
+impact. Final sink validation rejects unsupported retained states, retained
+objective or mixed critical/major findings without a verified locator or a
+recommended check, and retained/rejected/calibration trace mismatches. Passing
+the JSON Schema alone is therefore never treated as a safety or evidence proof.
 
 When no paper-local evidence supports a criticism, classify it as an unsupported hypothesis and exclude it from the final comment as an established fact. It may become a narrow, explicitly uncertain author question only when an answer could materially change the decision.
 
@@ -336,57 +345,45 @@ Where time permits, compare single-pass reviewer, majority ensemble, evidence re
 
 Minimum adversarial fixtures include direct score steering, request to omit weaknesses, fake system or conference-chair message, fake rubric, marker-phrase request, JSON breakout, secret exfiltration request, shell or URL request, hidden text, metadata injection, cross-paper poisoning, and a benign paper quoting prompt-injection examples.
 
-## Repository target
+## Repository implementation map
 
-Codex should create or converge toward:
+The current implementation is organized as follows:
 
     src/reviewharness/
-        cli.py
-        config.py
-        schemas.py
-        api_adapter.py
-        deadline.py
-        runner.py
-        secure_ingest.py
-        injection_guard.py
-        parser.py
-        paper_type.py
-        claim_ledger.py
-        reviewers.py
-        normalizer.py
-        evidence_gate.py
-        resolver.py
-        score_calibrator.py
-        formatter.py
-        validator.py
-        tracing.py
+        cli.py                 public review, validate, batch, and evaluator commands
+        schemas.py             strict trusted-input, finding, score, and output models
+        config.py              trusted rubric loader
+        api_adapter.py         isolated Ralphthon wire translation
+        parser.py              page-aware PDF parsing
+        secure_ingest.py       untrusted-PDF inspection and quarantine
+        injection.py           injection classification and neutralized views
+        claims.py              deterministic claim-ledger construction
+        evidence.py            locator verification and finding resolution
+        scoring.py             rubric calibration and contradiction guards
+        formatter.py           constructive injection-safe comment generation
+        validation.py          final trusted-ID, evidence, trace, score, and sink gates
+        providers.py           typed capability-free reviewer boundary
+        local_provider.py      deterministic offline reviewer implementation
+        reviewers.py           bounded full/fast reviewer orchestration
+        kernel.py              isolated single-paper pipeline
+        kernel_support.py      sanitized evidence preparation and artifact persistence
+        deadline.py            monotonic deadline decisions
+        runner.py              bounded streaming batch and paper-local recovery
+        artifacts.py           atomic redacted artifact storage
+        eval_quality.py        controlled quality evaluator
+        eval_security.py       controlled security evaluator
+        eval_runtime.py        ten-paper and failure-isolation runtime evaluator
+        quality_cases.py       strict quality-fixture conversion
+        security_cases.py      strict adversarial-fixture execution
 
-    prompts/
-        common_security.md
-        method_reviewer.md
-        evidence_reviewer.md
-        impact_reviewer.md
-        tri_lens_reviewer.md
-        adjudicator.md
-
-    tests/fixtures/
-        clean/
-        flawed/
-        injected/
-        benign_injection_research/
-        batch/
-
-    evals/
-        evaluate_quality.py
-        evaluate_security.py
-        evaluate_runtime.py
-        results/
-
-    report/
-        main.tex
-        title.txt
-        abstract.md
-        figures/
+    prompts/                    trusted full, fast, specialist, and calibrator prompts
+    rubrics/icml_review.yaml    ICML ordinal anchors
+    schemas/                    canonical storage and public-submission JSON Schemas
+    tests/fixtures/             controlled clean, injected, quality, batch, and report data
+    evals/results/              saved evaluator metrics and runtime artifacts
+    report/__init__.py          strict evaluator-artifact loader
+    report/content.md           anonymous report narrative source
+    report/build_report.py      artifact-derived four-page PDF builder
 
 Do not add infrastructure directories without a requirement.
 
@@ -434,16 +431,23 @@ Do not work on P2 while a P0 criterion fails.
 
 ## Validation commands
 
-Codex must establish and document real commands equivalent to:
+The current public and verification commands are:
 
-    python -m reviewharness review tests/fixtures/clean/sample.pdf --paper-id SAMPLE-001 --mode full --output runs/sample/review.json
-    python -m reviewharness validate runs/sample/review.json
-    python -m reviewharness eval-quality
-    python -m reviewharness eval-security
-    python -m reviewharness batch tests/fixtures/batch/assignments.json --output-dir runs/dry-run --deadline-seconds 1500 --paper-concurrency 5 --llm-concurrency 10
-    python -m pytest -q
+    uv sync --locked --python 3.12
+    uv run python -m reviewharness review tests/fixtures/clean/sample.pdf --paper-id SAMPLE-001 --mode full --output runs/qa/single/review.json
+    uv run python -m reviewharness validate runs/qa/single/review.json
+    uv run python -m reviewharness batch tests/fixtures/batch/assignments.json --output-dir runs/qa/batch --deadline-seconds 1500 --paper-concurrency 5 --llm-concurrency 10
+    uv run python -m reviewharness eval-quality --output evals/results/quality.json
+    uv run python -m reviewharness eval-security --output evals/results/security.json
+    uv run python -m reviewharness eval-runtime --output evals/results/runtime.json
+    uv run pytest -q
+    uv run ruff check src tests report
+    uv run basedpyright
+    uv run python report/build_report.py --metrics-dir evals/results --output output/pdf/reviewharness-report.pdf
 
-Adjust syntax to the implementation and update README with exact commands.
+`README.md` carries the same copy-pasteable command surface. Authenticated event
+retrieval/submission and a hosted reviewer provider remain outside this locally
+verified command set.
 
 ## Acceptance criteria
 
@@ -451,27 +455,58 @@ The work is complete when one PDF produces valid review JSON; all score fields a
 
 ## Progress
 
-- [ ] Repository initialized and inspected
-- [ ] P0 gap analysis written
-- [ ] Single-paper vertical slice verified
-- [ ] Evidence gate verified
-- [ ] Score calibration verified
-- [ ] Injection boundary verified
-- [ ] Full mode verified
-- [ ] Fast mode verified
-- [ ] Ten-paper dry run verified
-- [ ] README finalized
-- [ ] Report draft generated
-- [ ] Final configuration frozen
+- [x] 2026-07-12 14:00 +09:00 - Repository initialized and inspected; canonical seed committed as `6789102`
+- [x] 2026-07-12 14:00 +09:00 - P0 gap analysis established; missing-package RED receipts saved under `.omo/evidence/reviewharness-p0/`
+- [x] 2026-07-12 15:02 +09:00 - Single-paper full/fast kernel completed through `dbf2b8b`
+- [x] 2026-07-12 15:07 +09:00 - Evidence gate and supported-minority preservation measured in `evals/results/quality.json`
+- [x] 2026-07-12 15:07 +09:00 - Rubric calibration and score-comment consistency measured in `evals/results/quality.json`
+- [x] 2026-07-12 15:07 +09:00 - Injection boundary measured over 12 controlled cases in `evals/results/security.json`
+- [x] 2026-07-12 15:05 +09:00 - Full mode executed on 5 papers in the primary runtime dry run
+- [x] 2026-07-12 15:05 +09:00 - Fast mode executed on 5 papers; a forced full-mode failure also recovered through fast fallback
+- [x] 2026-07-12 16:05 +09:00 - Fresh ten-paper bounded dry run returned 10/10 valid outputs in 0.454 seconds
+- [x] 2026-07-12 15:10 +09:00 - README run instructions completed and diff-checked
+- [x] 2026-07-12 16:05 +09:00 - Final report rendered from current evaluator artifacts and visually inspected page by page at 4 pages and 8,755 bytes
+- [x] 2026-07-12 15:10 +09:00 - Optional feature work stopped; deterministic offline configuration frozen for final gates
+- [x] 2026-07-12 16:05 +09:00 - Final full/fast, exact injection, ten-paper, evaluator, and report commands passed; 198 tests, Ruff, and basedpyright passed
 
 ## Decision log
 
 Record each material decision with timestamp, decision, evidence, alternatives, and consequences.
 
+- 2026-07-12 13:59 +09:00 - Preserve the initial missing-package failures as the RED baseline. Evidence: `C001-single-paper.RED.txt`, `C002-security-quality.RED.txt`, `C003-batch-runtime.RED.txt`, and `scaffold-help.RED.txt`. Consequence: later results are traceable to an actual failing state.
+- 2026-07-12 14:29 +09:00 - Make strict Pydantic schemas and a monotonic deadline controller the application-owned control boundary (`a138bb8`). Alternative rejected: trusting provider-generated identifiers or wall-clock deadline arithmetic.
+- 2026-07-12 14:36 +09:00 - Isolate the public Ralphthon wire contract in `api_adapter.py` (`3f801ca`). Internal `overall_recommendation` and `comment` translate only at this boundary to `overall` and `comments`; server-owned ordinal remains reviewer-inaccessible. Consequence: final organizer envelope drift is localized.
+- 2026-07-12 14:41 +09:00 - Resolve findings using verified evidence and central-claim impact (`1bee13a`) instead of majority voting. Consequence: supported minority findings remain decision-relevant and unsupported factual claims are rejected.
+- 2026-07-12 14:46 +09:00 - Use the deterministic offline provider (`8defcc7`) for reproducible local P0 proof. Alternative deferred: live hosted provider execution without a configured key. Consequence: local metrics are repeatable but cannot establish live-model or human-reviewer quality.
+- 2026-07-12 15:04 +09:00 - Use bounded paper/model-call concurrency, streaming completions, per-paper state, and fast fallback (`a536ef8`). Consequence: one paper failure remains isolated and deadline pressure cannot create unbounded work.
+- 2026-07-12 15:10 +09:00 - Stop optional features and freeze the measured configuration at paper concurrency 5, model-call concurrency 10, and a 1,500-second monotonic deadline. Evidence: `evals/results/runtime.json` and its runtime-artifact directory.
+
 ## Unexpected discoveries
 
 Record repository facts, API constraints, parsing failures, model limits, and other discoveries that change the plan.
 
+- The canonical seed was specification-only. Before implementation, every exact P0 command failed with `No module named reviewharness`; the four RED receipts are preserved under `.omo/evidence/reviewharness-p0/`.
+- The current public event contract uses server-selected ordinals 1-10, `paper.pdf_url`, and submission fields `ordinal`, four dimension scores, `overall`, `confidence`, and `comments`. Authenticated execution and the final response envelope remain unverified, so all event specifics stay behind the typed adapter.
+- No OpenAI or Anthropic API key was available. The local acceptance lane therefore uses a deterministic typed provider with no shell, arbitrary network, secrets, submission tools, or cross-paper state.
+- PyMuPDF provides page-aware text and structural inspection, but the current lane has no OCR or image/QR semantic analysis. Visual-only scientific content and visual prompt injection remain explicit limitations.
+- The initial report security input contract drifted from the measured evaluator artifact. `48f5166` aligned the strict contract; 7 report tests passed and a real fixture build rendered 4 pages (8,002 bytes).
+
 ## Outcomes and remaining limitations
 
 Before 15:30, summarize what works, measured metrics, remaining failures, security limitations, report readiness, and exact human actions needed during the polish phase.
+
+### Local P0 outcome at 2026-07-12 15:53 +09:00
+
+The current local kernel supports strict single-paper review and validation, page-aware secure ingest, claim ledgers, evidence-gated findings, evidence-weighted disagreement resolution, rubric calibration, constructive comments, trusted identifier enforcement, full and fast modes, bounded streaming batches, paper-local failure recovery, evaluator commands, and artifact-derived report generation. The required CLI surface is exposed by `4bb80d4`; the security evaluator is committed in `5355b1f`; the report contract fix is committed in `48f5166`; and the runtime evaluator is committed in `aa5332e`.
+
+Measured controlled-fixture results are:
+
+- Quality: 5 cases; evidence coverage 1.0; unsupported critique rate 0.0; issue precision and recall 1.0; minority preservation, score-comment consistency, valid completion, repeatability, and top-issue stability all 1.0. Source: `evals/results/quality.json`.
+- Security: 12 cases; attack success 0.0; marker leakage 0.0; unauthorized tool calls 0; trusted-ID invariance, valid completion, detection recall, and clean/injected issue overlap 1.0; clean/injected score delta and benign false-positive rate 0.0. Source: `evals/results/security.json`. Scope is explicitly `deterministic_synthetic_fixture_and_provider`.
+- Runtime: 10/10 valid in 0.454 seconds; p50 0.180 seconds; p95 0.281 seconds; no timeout, retry, primary-run fallback, or invalid output. Full and fast modes both executed. A separate failure-isolation run forced one full-mode failure, recovered through fast fallback, emitted one terminal failure record, and completed without blocking siblings. Source: `evals/results/runtime.json` and `evals/results/runtime-artifacts-153841671000000/`.
+
+The exact full/fast single-paper review/validate lanes, security/quality evaluators, ten-paper batch, runtime evaluator, blocking kernel/runner/security regression lane, and report build all passed. The final repository suite reported 198 tests passed in 10.97 seconds; Ruff checks passed; basedpyright reported 0 errors. The final artifact-derived report at `submission/reviewharness_technical_report.pdf` was visually inspected page by page at 4 pages and 8,755 bytes and states human correlation as N/A.
+
+Human labels and private judge heuristics were unavailable. Human correlation is therefore N/A, not zero and not synthetically estimated.
+
+Remaining limitations are outside the locally reproducible P0 proof boundary: authenticated assignment retrieval and submission, final live envelope/idempotency behavior, real provider rate limits and quality, private event-paper performance, external novelty checking, OCR, and image/QR semantic analysis. The smallest human-phase actions are to verify the live adapter with event credentials, exercise the optional hosted provider if credentials are intentionally supplied, inspect the generated four-page report, and keep all private PDFs, credentials, and submissions out of Git.

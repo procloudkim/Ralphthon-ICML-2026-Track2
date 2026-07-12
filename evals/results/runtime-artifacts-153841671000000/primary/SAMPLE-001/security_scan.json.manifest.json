@@ -1,0 +1,9 @@
+{
+  "artifact_path": "security_scan.json",
+  "media_type": "application/json",
+  "paper_id": "SAMPLE-001",
+  "schema_version": 1,
+  "sha256": "6658d61d2a1749570f8cb9635edd4b56307dcff0d60d9c7dc85cdda654c4ce6e",
+  "size_bytes": 242,
+  "stage": "security_scan"
+}

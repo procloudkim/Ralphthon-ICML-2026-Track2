@@ -26,10 +26,18 @@ Trusted assignment code overwrites model identifiers. Raw suspicious spans never
 ## Protocol
 Saved evaluator artifacts are the only source for quantitative statements in this report. Controlled scientific fixtures measure evidence grounding and decision consistency; adversarial fixtures measure containment; a local batch dry run measures reliability and latency.
 The report builder strictly parses security.json, quality.json, and runtime.json. Missing fields, extra fields, malformed JSON, out-of-range ratios, and non-finite values stop generation.
+
+## Runtime and concurrency setup
+The production design uses bounded paper workers and bounded reviewer calls under a monotonic twenty-five-minute deadline. The controlled dry run exercises both full and fast modes, while a separate forced-failure scenario checks fallback and sibling-paper isolation. No hosted-model timing or human-labeled baseline was available, so the report includes no such comparison.
 ---
 ## Failure analysis
 The bounded fallback order retains successful specialist evidence, switches delayed work to fast mode, and emits only schema-valid conservative results. A failed paper remains isolated from sibling workers.
-Aggregate evaluator artifacts contain no case-level narrative, so this report does not invent a representative case.
+
+## Representative controlled case
+In the clean controlled fixture, the resolver retains a page-local major scope limitation that directly affects the central claim, while unsupported criticism is excluded. The final comment names the cited limitation, explains its decision impact, and recommends a targeted author check; the score trace remains consistent with that retained evidence.
+
+## Known failures
+Authenticated event retrieval and submission, hosted-provider rate limits and quality, OCR, image or QR semantics, and private-paper behavior remain unverified. These are explicit proof-boundary limits rather than inferred successes.
 
 ## Limitations
 - Human labels and private heuristics were unavailable during development.
@@ -40,4 +48,4 @@ Aggregate evaluator artifacts contain no case-level narrative, so this report do
 - Post-hoc correlation on a small batch would have high uncertainty.
 
 ## Conclusion
-ReviewHarness makes its proof boundary explicit: evidence and proxy metrics are measured locally, while claims about hidden human alignment remain unavailable until real labels exist.
+ReviewHarness is locally production-ready for the verified CLI, schema, security, full/fast, fallback, and bounded-batch surfaces. Its proof boundary remains explicit: evidence and proxy metrics are measured locally, while live-event behavior and hidden human alignment remain unavailable until exercised by organizers.
