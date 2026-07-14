@@ -1,6 +1,6 @@
 # ReviewHarness Ralphthon Track 2 ExecPlan
 
-Status: M0-M4 COMPLETE; M5 PUBLICATION PROOF REFRESH IN PROGRESS
+Status: M0-M4 COMPLETE; M5 FINAL GATE GREEN, PUBLICATION PENDING
 Date: 2026-07-14
 Timezone: Asia/Seoul
 
@@ -317,7 +317,7 @@ The opt-in provider check is separate because it is nondeterministic and may req
 saved Codex authentication:
 
     $env:RUN_CODEX_EXEC_SMOKE = '1'
-    uv run python -m pytest -q -p no:cacheprovider tests/integration/test_live_provider.py -k real_codex_exec_provider_smoke
+    uv run python -m pytest -q -p no:cacheprovider tests/integration/test_live_provider.py -k real_two_paper_codex_exec_provider_smoke
     Remove-Item Env:RUN_CODEX_EXEC_SMOKE
 
 Required public evidence:
@@ -405,9 +405,15 @@ public artifacts above are.
   Decision: KEEP.
 - [ ] M5 documentation, public artifacts, final diff, and branch push completed.
 
-Next exact action: refresh saved public evaluator artifacts, reconcile README and
-`PROGRESS.md` to the measured proof boundary, run the opt-in provider smoke if
-available, then complete the final privacy/diff/QA gate before push.
+M5 preparation at 2026-07-14 19:53 +09:00: saved evaluator JSON and the anonymous
+report were regenerated from public fixtures; the provider-replay trace is saved;
+README and `PROGRESS.md` now separate every proof scope; and the two-request real
+Codex smoke passed in 43.37 seconds without event access or submission. The final
+deterministic gate reports 241 passed with one opt-in smoke skipped, Ruff clean,
+basedpyright at zero errors, and a four-page anonymous report.
+
+Next exact action: complete the final privacy/diff/QA gate, commit the M5 artifacts,
+push the branch, and open a draft pull request.
 
 ### Decision log
 
@@ -431,23 +437,24 @@ available, then complete the final privacy/diff/QA gate before push.
 
 ### Unexpected discoveries
 
-- The real Codex smoke exists but is opt-in, so the ordinary 213-pass suite does not
-  exercise an actual provider process.
-- The provider-visible evidence granularity is finer than the provider's natural
-  citation granularity; this also explains fragmentary claim summaries.
+- The real Codex smoke is opt-in, so the ordinary deterministic suite does not
+  exercise an actual provider process. The two-request public smoke passed on
+  2026-07-14; it does not establish ten-paper throughput.
+- The baseline provider-visible evidence granularity was finer than the provider's
+  natural citation granularity; parser-owned paragraph blocks repaired this seam.
 - Provider-contract failures can be reported safely as aggregate reason codes
   (`unknown_block`, `page_mismatch`, `quote_mismatch`) without persisting rejected
   provider text.
-- Fast-mode instructions discourage scores while the schema and kernel silently
-  permit their absence.
-- Full mode has no specialist score proposal and therefore also depends on the fixed
-  fallback today.
+- The baseline fast-mode instructions discouraged scores while the schema and kernel
+  silently permitted their absence. Fast scores are now required.
+- The baseline full mode had no specialist score proposal and depended on a fixed
+  fallback. It now uses a dedicated calibrator with explicit provenance.
 - A frozen dataclass exception cannot safely accept Python traceback assignment;
   the typed kernel error must remain mutable even though its payload is bounded.
 - Kernel-internal retry hides actual retry counts from the live terminal record; the
   live loop now owns one transient-only whole-review retry and records it exactly.
-- Final validation checks structure, security phrases, and broad consistency but does
-  not require a concrete cited concern for a negative recommendation.
+- The baseline final validator allowed a negative generic review without a concrete
+  cited concern. The semantic sink now rejects that result.
 - Current quality, security, and runtime evaluators share implementation assumptions
   with the system they certify and therefore cannot independently establish live
   scientific quality.
@@ -472,9 +479,18 @@ available, then complete the final privacy/diff/QA gate before push.
 
 ### Final outcomes and remaining limitations
 
-Not yet measured. When implementation ends, replace this paragraph with exact fresh
-commands, artifact paths, commit IDs, pushed branch, and limitations. Do not mark the
-cycle complete merely because the plan or code exists.
+M0-M4 are verified through commits `5c8ab11`, `770fec7`, `44e8b64`, `f1453a8`,
+and `a76d005`. Fresh deterministic verification reports 241 passed with one opt-in
+provider test skipped, Ruff clean, basedpyright at zero errors, three scoped
+evaluator artifacts passing, and a four-page anonymous report. The separate
+two-request real Codex smoke passed in 43.37 seconds. Public conformance artifacts
+show a central claim at `p1-b2`, a retained major concern at `p1-b4`, `tri_lens`
+score provenance, and a validated concrete review.
+
+Still unmeasured: real-provider ten-paper runtime, full-mode hosted latency,
+human-reviewer correlation, arbitrary private-paper quality, and current
+authenticated event behavior. M5 is complete only after the final gate, branch
+push, and draft pull request.
 
 # Historical 2026-07-12 event plan
 

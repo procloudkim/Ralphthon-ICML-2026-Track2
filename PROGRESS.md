@@ -1,159 +1,188 @@
 # ReviewHarness Progress
 
-Last updated: 2026-07-12T16:05:48+09:00
-Current phase: P0 LOCALLY COMPLETE; LIVE EVENT/HOSTED PROVIDER UNVERIFIED
-Current checkpoint: every locally verifiable P0 acceptance criterion passed with final CLI, evaluator, test, static-analysis, and rendered-report evidence
-Blocked: NO
+Last updated: 2026-07-14T19:53:06+09:00
 
-## Current repository state
+Phase: post-event provider-contract hardening, publication gate
 
-- Branch: `main`
-- Implementation commit: `d56efdc` is the last committed checkpoint; the final verified hardening, evidence, report, README, and submission package are pending one final commit
-- Working tree: the intended staged set contains blocking kernel/runner/security hardening, paired regressions, one canonical synthetic runtime run, final report, and submission text; duplicate runtime reruns, `tmp/`, `[중요]대회주요정보.txt`, and `tools/` are excluded
-- Python/runtime: CPython 3.12.10, `uv` 0.11.17
-- Model configuration: deterministic offline `LocalHeuristicProvider`; no model key or arbitrary reviewer tools
-- Network assumptions: local P0 verification is offline; the typed Ralphthon adapter is not exercised against an authenticated live event account
+Branch: `fix/provider-contract-quality-gates`
 
-## Verified baseline
+Blocked: NO; GitHub publication is the remaining external action
 
-- Commands: the exact single-paper, security/quality, and batch/runtime acceptance commands were attempted before package implementation
-- Result: all failed with exit code 1 because `reviewharness` did not exist
-- Runtime: not measured at RED because execution never reached the kernel
-- Passing tests: none at RED
-- Failing evidence:
-  - `.omo/evidence/reviewharness-p0/C001-single-paper.RED.txt`
-  - `.omo/evidence/reviewharness-p0/C002-security-quality.RED.txt`
-  - `.omo/evidence/reviewharness-p0/C003-batch-runtime.RED.txt`
-  - `.omo/evidence/reviewharness-p0/scaffold-help.RED.txt`
-- First green CLI receipt: `.omo/evidence/reviewharness-p0/scaffold-help.txt`
+## Current verdict
 
-## Final acceptance receipts
+The post-event hardening cycle repaired the scientific-signal boundary without
+weakening trusted identity, prompt-injection containment, failure isolation, or
+receipt validation.
 
-- C001: the exact full-mode single-paper `review` command completed, wrote the complete per-paper artifact set, and the exact `validate` command passed.
-- C002: the exact `eval-security` and `eval-quality` commands passed and wrote `evals/results/security.json` and `evals/results/quality.json`.
-- C003: the exact ten-paper `batch`, `eval-runtime`, full `pytest`, and report-build commands passed.
-- Final runtime-debug audit: ingest cancellation exited before the blocking worker was released; an unexpected paper-local reviewer error produced exactly one `review_failed` completion without terminating a later sibling; ambiguous provider targets remained unlinked; and all six exact injection commands were quarantined before provider input. The focused 18-test lane passed in 0.65 seconds.
-- Full tests: 198 passed in 10.97 seconds.
-- Ruff format: 59 files already formatted.
-- Ruff check: all checks passed.
-- Basedpyright: 0 errors.
-- Final report: `submission/reviewharness_technical_report.pdf`, visually inspected page by page, 4 pages, 8,755 bytes, SHA-256 `e5daac26b29eec8046f44943b10c90a1c9038aa6090d00d9c39dc5a38ae781cb`, anonymous Author metadata, and human correlation stated as N/A.
+The repository now has four distinct proof levels:
 
-## P0 status
+| Proof level | Current result |
+|---|---|
+| Deterministic structure and regression | VERIFIED: 241 passed, one opt-in provider test skipped; Ruff and basedpyright green |
+| Public provider replay through the kernel | VERIFIED: central claim, major cited concern, `tri_lens` scores, comment trace, and strict final review survived |
+| Real Codex provider boundary | VERIFIED only for two concurrent public synthetic requests; `1 passed` in 43.37 seconds, no event API or submission |
+| Real-provider ten-paper runtime / human alignment | UNVERIFIED / N/A |
 
-- [x] Strict input and output schemas
-- [x] Single-paper valid output
-- [x] Page-aware parsing
-- [x] Claim ledger
-- [x] Evidence-grounded findings
-- [x] Unsupported-finding rejection
-- [x] Rubric-based score calibration
-- [x] Constructive comment
-- [x] Prompt-injection isolation
-- [x] Output security validation
-- [x] Full mode
-- [x] Fast mode
-- [x] Ten-paper bounded runner
-- [x] Deadline controller
-- [x] Failure isolation
-- [x] README instructions
-- [x] Technical-report source and four-page render path
+The authenticated event workflow is not revalidated by the public evidence in this
+branch. Historical private event material, credentials, PDFs, reviews, and receipts
+remain outside Git.
 
-## Current best measurements
+## Why this cycle was needed
 
-All numbers below come from current files in `evals/results/`. They measure controlled synthetic fixtures with the deterministic offline provider, not private event papers, a live hosted model, or human-reviewer agreement.
+A read-only postmortem found that the production-capable path could receive useful
+provider candidates and still emit a generic review. The main causes were:
 
-### Quality proxies
+- provider-visible evidence used line identifiers while provider output naturally
+  cited paragraph blocks;
+- exact locator and quote checks then rejected most scientific signal;
+- fast mode allowed a null score proposal;
+- provider-success paths could fall back to one fixed score vector; and
+- schema-valid generic prose could pass the shallow final sink.
 
-- Evidence coverage: 1.0 over 5 controlled cases
+The repository had strong transport and security controls, but those controls did
+not prove that provider reasoning survived into the final scientific review.
+
+## Verified milestone commits
+
+| Commit | Milestone | Verified effect |
+|---|---|---|
+| `5c8ab11` | Static-analysis baseline | Restored Ruff and basedpyright without behavior change |
+| `770fec7` | Provider evidence contract | Added parser-owned paragraph blocks and exact block-plus-quote canonicalization |
+| `44e8b64` | Score/comment fail-closed gates | Required score provenance, added full calibrator and comment inclusion trace, removed fixed-score success fallback |
+| `f1453a8` | Degraded live behavior | Removed automatic heuristic substitution and added typed paper-local live failures |
+| `a76d005` | Scoped evaluation | Separated component, replay-conformance, paired-security, local-runtime, and real-provider claims |
+
+## Current saved measurements
+
+The canonical aggregate artifacts are `evals/results/quality.json`,
+`evals/results/security.json`, and `evals/results/runtime.json`. They were regenerated
+from public fixtures on 2026-07-14.
+
+### Quality
+
+- Scope: `synthetic_component_cases_plus_public_provider_replay`
+- Controlled cases: 5
+- Evidence coverage: 1.0
 - Unsupported critique rate: 0.0
-- Controlled-fixture issue recall: 1.0
-- Controlled-fixture issue precision: 1.0
-- Supported minority-finding preservation: 1.0
+- Issue precision / recall: 1.0 / 1.0
+- Minority preservation: 1.0
 - Score-comment consistency: 1.0
-- Repeatability: 1.0
-- Top-issue stability: 1.0
-- Valid completion: 1.0
-- Evaluator duration: 0.030016 seconds
-- Artifact: `evals/results/quality.json` (`passed: true`)
+- Valid completion, repeatability, top-issue stability: 1.0
+- Provider-replay conformance: PASS
+- Human correlation: N/A
+- Aggregate gate: PASS
+
+The public replay trace at
+`evals/results/quality-conformance/QUALITY-CONFORMANCE/` contains:
+
+- one canonical central claim at `p1-b2`;
+- one retained `minority_supported` major concern at `p1-b4`;
+- a score trace sourced from `tri_lens` with Overall Recommendation 2;
+- a comment trace including the claim and finding; and
+- a validated final review containing the cited concern.
 
 ### Security
 
-- Attack success rate: 0.0 over 12 controlled cases
-- Marker leakage rate: 0.0
-- Unauthorized tool calls: 0
-- Trusted-ID invariance: 1.0
-- Valid completion: 1.0
-- Clean-vs-injected score delta: 0.0
-- Clean-vs-injected issue overlap: 1.0
-- Detection recall: 1.0
-- Benign false-positive rate: 0.0
-- Evaluator duration: 0.047 seconds
-- Scope: `deterministic_synthetic_fixture_and_provider`
-- Artifact: `evals/results/security.json` (`passed: true`)
+- Scope: `synthetic_attack_cases_plus_public_paired_documents_local_provider`
+- Provider: `local_heuristic_no_tools_no_network`
+- Controlled cases: 12; public clean/injected pairs: 1
+- Detection recall / trusted-ID invariance / valid completion: 1.0
+- Attack success / marker leakage / benign false-positive rate: 0.0
+- Clean-injected score delta: 0.0
+- Clean-injected issue overlap: 1.0
+- Unauthorized tool calls: N/A (`unmeasured_no_instrumented_runner`)
+- Aggregate gate: PASS
+
+This lane does not report zero tool calls because it has no instrumented provider
+runner that could observe attempts.
 
 ### Runtime
 
-- Batch completion: 10/10 valid
-- Total runtime: 0.454 seconds
-- p50 paper runtime: 0.180 seconds
-- p95 paper runtime: 0.281 seconds
-- Timeouts: 0
-- Retries: 0
-- Primary-run fast fallbacks: 0
-- Invalid outputs: 0
-- Full mode executed: YES (5 papers)
-- Fast mode executed: YES (5 papers)
-- Monotonic deadline controller: PASS at 1,500 seconds
-- Configured concurrency: 5 papers / 10 model calls
-- Failure isolation: PASS in a separate 3-paper scenario; `SAMPLE-001` recovered from a forced full-mode `RuntimeError` through fast fallback while siblings completed
-- Artifact: `evals/results/runtime.json` plus `evals/results/runtime-artifacts-153841671000000/`
+- Scope: `local_synthetic_hash_distinct_pdf_batch`
+- Provider: `local_heuristic_no_network`
+- Public PDFs: 10, with 10 distinct SHA-256 hashes
+- Valid completions: 10/10
+- Total / p50 / p95: 0.500 / 0.203 / 0.250 seconds
+- Timeouts / retries / primary fallbacks / invalid outputs: 0 / 0 / 0 / 0
+- Full and fast modes: both executed
+- Failure isolation: PASS in a separate forced-failure scenario
+- Real-provider ten-paper runtime: UNVERIFIED
 
-### Human alignment
+The local timing excludes hosted inference and network latency and must not be used
+as a production throughput claim. Verbose runtime traces are reproducible and
+ignored; the compact JSON is the canonical saved result.
 
-- Real human labels available: NO
-- Actual human correlation: N/A
-- Development proxies used: rubric-anchor compliance, evidence coverage, unsupported-critique rejection, controlled issue precision/recall, minority preservation, score-comment consistency, repeatability, top-issue stability, injection containment, trusted-ID invariance, valid completion, failure isolation, and runtime
+## Real-provider smoke
 
-## Latest iteration
+Executed on 2026-07-14 with saved local Codex authentication:
 
-- Hypothesis: fail-closed claim relinking, terminal exception receipts, and complete lexical quarantine close the final submission-blocking proof gaps without changing review methodology
-- Changed component: trusted claim-link boundary, paper-local completion receipt, and secure-ingest phrase detection only
-- Evaluation command: focused kernel/runner/security regressions, one full pytest run, all three frozen evaluators, report build, four-page visual inspection, and diff checks
-- Before: ambiguous targets could inherit a sole central claim, unexpected paper exceptions lacked a terminal completion record, and three exact reviewer commands reached provider evidence
-- After: ambiguous targets remain unlinked, every exceptional paper emits exactly one typed terminal record, all six exact commands are quarantined, the focused lane passed 18 tests, and the full suite passed 198 tests
-- Security effect: fresh controlled evaluation reports zero attack success, zero marker leakage, zero unauthorized tool calls, and full trusted-ID invariance
-- Runtime effect: the fresh ten-paper synthetic run completed 10/10 in 0.454 seconds; hosted-provider latency remains unverified
-- Decision: KEEP
+```powershell
+$env:RUN_CODEX_EXEC_SMOKE='1'
+uv run python -m pytest -q -p no:cacheprovider `
+  tests/integration/test_live_provider.py `
+  -k real_two_paper_codex_exec_provider_smoke
+```
 
-## Decisions
+Result: `1 passed, 5 deselected in 43.37s`.
 
-| Time | Decision | Evidence | Consequence |
-|---|---|---|---|
-| 13:59 | Preserve the missing-package run as the RED baseline | `.omo/evidence/reviewharness-p0/C00*.RED.txt` | Later green claims remain falsifiable and do not erase the initial failure |
-| 14:29 | Use strict typed schemas and monotonic deadlines as the core boundary | `a138bb8` | Trusted identifiers, score ranges, and deadline state are application-owned |
-| 14:35 | Treat extracted PDF content as quarantined evidence | `2f449d5`, `97fe6e6` | Paper instructions do not become control-plane instructions |
-| 14:41 | Resolve findings by evidence and central-claim impact, not majority vote | `1bee13a` | Supported minority findings survive; unsupported findings are rejected |
-| 14:46 | Use the deterministic offline provider for locally reproducible P0 proof | `8defcc7` | Local evaluation requires no key; live-model quality remains unverified |
-| 15:04 | Keep paper/model concurrency bounded and failures paper-local | `a536ef8` | The ten-paper path streams completions and one failure does not cancel siblings |
-| 15:10 | Stop optional feature work and freeze the measured local P0 configuration | `evals/results/*.json` | Remaining work is validation, state/report finalization, and handoff only |
+The test issued two concurrent structured-output requests over public synthetic
+evidence and parsed both as `TriLensCandidates`. It did not fetch assignments,
+submit reviews, use private PDFs, or measure a ten-paper workload.
 
-## Assumptions
+## Verification gate
 
-- Event API details remain isolated behind `src/reviewharness/api_adapter.py`.
-- The internal `overall_recommendation` and `comment` fields translate only at the event boundary to `overall` and `comments`; server-owned `ordinal` remains outside reviewer control.
-- Real human judge labels and private heuristics are unavailable during development.
-- The published 16:35-17:00 window is the production hard limit, represented locally as a 1,500-second monotonic deadline.
+Fresh M4 verification completed with:
 
-## Blockers and limitations
+```powershell
+uv run python -m reviewharness eval-quality --output evals/results/quality.json
+uv run python -m reviewharness eval-security --output evals/results/security.json
+uv run python -m reviewharness eval-runtime --output evals/results/runtime.json
+uv run python report/build_report.py --metrics-dir evals/results `
+  --output output/pdf/reviewharness-report.pdf
+uv run python -m pytest -q -p no:cacheprovider
+uv run ruff check --no-cache src tests report
+uv run basedpyright
+git diff --check
+```
 
-- No local P0 blocker is currently known.
-- Authenticated assignment retrieval, PDF download, review submission, receipt/idempotency behavior, final live response envelopes, and provider rate limits remain unverified without event credentials.
-- The deterministic offline provider proves local contracts and orchestration, not quality on arbitrary private papers or a hosted model.
-- PyMuPDF text extraction inspects metadata, links, annotations, and embedded-file descriptors but does not perform OCR or image/QR semantic analysis.
-- External novelty and unchecked technical details remain uncertain without literature access; the kernel must express that uncertainty.
+Recorded result before the final documentation-only pass:
+
+- Tests: 241 passed, 1 opt-in smoke skipped
+- Ruff: all checks passed
+- basedpyright: 0 errors, 0 warnings
+- Report: 4 pages, anonymous author metadata, SHA-256
+  `3d67c93f328e4b9e45dd199f26f86dfd35ad8cc2b4255f6a57ea824b10af08cd`
+- Diff check: passed
+
+The complete gate is rerun once more immediately before publication.
+
+## Preserved controls
+
+- Trusted `paper_id` and event ordinal remain application-owned.
+- Paper content remains untrusted evidence with no tools, secrets, network, event
+  API, or cross-paper mutation capability.
+- Critical and major factual concerns require paper-local support.
+- Supported minority findings are preserved rather than majority-voted away.
+- Fast mode requires a score proposal; full mode uses a dedicated calibrator.
+- Recommendations 1-3 require an included, cited, decision-relevant concern.
+- Empty claim ledgers fail as unreviewable.
+- Live provider failure cannot trigger automatic local-heuristic submission.
+- One transient provider retry is bounded and paper-local.
+- One failed paper cannot block siblings or create a submission receipt.
+
+## Known limitations
+
+- Human labels and judge-specific heuristics remain unavailable; correlation is N/A.
+- Real-provider ten-paper runtime, full-mode latency, and arbitrary-paper quality are
+  unmeasured.
+- The current public release does not reproduce authenticated event envelopes,
+  credentials, rate limits, idempotency behavior, or receipts.
+- OCR, figures, tables as images, and QR semantics are not analyzed.
+- External novelty and unchecked technical details require independent sources.
 
 ## Next exact action
 
-1. Commit and push the verified frozen state, judge-facing README, controlled evaluation evidence, and anonymous submission artifacts; keep private event inputs and unrelated untracked files out of Git.
-2. Manually enter the prepared OpenReview fields, select the four-page PDF, submit before 16:30 Asia/Seoul, and verify the platform confirmation/status.
+Run the final deterministic gate, inspect the complete staged file and privacy
+boundary, commit the publication artifacts, push the branch, and open a draft pull
+request. Do not add ignored runtime traces, private event material, credentials, or
+submission receipts.

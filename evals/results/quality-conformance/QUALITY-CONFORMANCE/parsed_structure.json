@@ -1,0 +1,40 @@
+{
+  "blocks": [
+    {
+      "block_id": "p1-b0",
+      "locator": "p1-b0",
+      "page": 1,
+      "section": null,
+      "text": "Provider Contract Study"
+    },
+    {
+      "block_id": "p1-b1",
+      "locator": "p1-b1",
+      "page": 1,
+      "section": "Abstract",
+      "text": "Abstract"
+    },
+    {
+      "block_id": "p1-b2",
+      "locator": "p1-b2",
+      "page": 1,
+      "section": "Abstract",
+      "text": "We introduce a budget-aware classifier that improves mean accuracy over a matched linear baseline on two public datasets."
+    },
+    {
+      "block_id": "p1-b3",
+      "locator": "p1-b3",
+      "page": 1,
+      "section": "Limitations",
+      "text": "Limitations"
+    },
+    {
+      "block_id": "p1-b4",
+      "locator": "p1-b4",
+      "page": 1,
+      "section": "Limitations",
+      "text": "The central comparison uses one fixed seed and reports no variance, so the stability of the measured gain remains unverified."
+    }
+  ],
+  "page_count": 1
+}

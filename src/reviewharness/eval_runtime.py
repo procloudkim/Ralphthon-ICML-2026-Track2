@@ -63,7 +63,7 @@ class RuntimeMetrics(_StrictRuntimeModel):
     monotonic_deadline: Literal[True] = True
     evaluation_scope: Literal["local_synthetic_hash_distinct_pdf_batch"]
     provider_scope: Literal["local_heuristic_no_network"]
-    real_provider_smoke_status: Literal["unverified"]
+    real_provider_ten_paper_runtime_status: Literal["unverified"]
     real_provider_ten_paper_runtime_seconds: None = None
 
 
@@ -268,7 +268,7 @@ def _build_metrics(
         fast_mode_executed=ReviewMode.FAST in executed_modes,
         evaluation_scope="local_synthetic_hash_distinct_pdf_batch",
         provider_scope="local_heuristic_no_network",
-        real_provider_smoke_status="unverified",
+        real_provider_ten_paper_runtime_status="unverified",
     )
 
 

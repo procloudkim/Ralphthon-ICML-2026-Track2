@@ -1,0 +1,16 @@
+[
+  {
+    "claim_id": "C-F78F62C94091",
+    "claim_type": "empirical",
+    "importance": "central",
+    "reported_evidence": [
+      {
+        "block_id": "p1-b2",
+        "locator": "p1-b2",
+        "page": 1,
+        "section": "Abstract"
+      }
+    ],
+    "statement": "A budget-aware classifier improves mean accuracy over a matched linear baseline on two public datasets."
+  }
+]

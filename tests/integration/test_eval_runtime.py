@@ -36,7 +36,7 @@ def test_runtime_evaluation_proves_ten_paper_production_contract(
         "monotonic_deadline",
         "evaluation_scope",
         "provider_scope",
-        "real_provider_smoke_status",
+        "real_provider_ten_paper_runtime_status",
         "real_provider_ten_paper_runtime_seconds",
     }
     assert metrics.paper_count == 10
@@ -54,7 +54,7 @@ def test_runtime_evaluation_proves_ten_paper_production_contract(
     assert metrics.monotonic_deadline
     assert metrics.evaluation_scope == "local_synthetic_hash_distinct_pdf_batch"
     assert metrics.provider_scope == "local_heuristic_no_network"
-    assert metrics.real_provider_smoke_status == "unverified"
+    assert metrics.real_provider_ten_paper_runtime_status == "unverified"
     assert metrics.real_provider_ten_paper_runtime_seconds is None
     artifact_roots = tuple(tmp_path.glob("runtime-artifacts-*"))
     assert len(artifact_roots) == 1

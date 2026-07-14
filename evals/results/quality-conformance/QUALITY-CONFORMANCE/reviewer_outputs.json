@@ -1,0 +1,72 @@
+{
+  "failure_count": 0,
+  "outputs": [
+    {
+      "claims": [
+        {
+          "claim_id": "C1",
+          "claim_type": "empirical",
+          "importance": "central",
+          "reported_evidence": [
+            {
+              "block_id": "p1-b2",
+              "page": 1,
+              "quote": "improves mean accuracy over a matched linear baseline on two public datasets"
+            }
+          ],
+          "statement": "A budget-aware classifier improves mean accuracy over a matched linear baseline on two public datasets."
+        }
+      ],
+      "findings": [
+        {
+          "category": "statistical_reporting",
+          "confidence": 0.95,
+          "decision_relevance": "high",
+          "evidence": [
+            {
+              "block_id": "p1-b4",
+              "page": 1,
+              "quote": "uses one fixed seed and reports no variance"
+            }
+          ],
+          "finding_id": "F1",
+          "judgment_type": "mixed",
+          "recommended_check": "Report repeated-seed variability for the matched comparison.",
+          "severity": "major",
+          "statement": "The central comparison does not establish stability across runs.",
+          "target_claim_id": "C1"
+        }
+      ],
+      "score_proposal": {
+        "finding_ids": [
+          "F1"
+        ],
+        "rationale": "The one-seed comparison leaves a major central evidence gap.",
+        "reviewer": "tri_lens",
+        "scores": {
+          "confidence": 4,
+          "originality": 3,
+          "overall_recommendation": 2,
+          "presentation": 3,
+          "significance": 3,
+          "soundness": 2
+        }
+      },
+      "strengths": [
+        "The central comparison names a matched baseline and two public datasets."
+      ],
+      "summary": "The paper evaluates a budget-aware classifier against a matched baseline.",
+      "uncertainty_notes": [
+        "External novelty was not checked."
+      ]
+    }
+  ],
+  "provider_contract": {
+    "accepted_claims": 1,
+    "accepted_evidence": 1,
+    "claim_candidates": 1,
+    "evidence_candidates": 1,
+    "finding_candidates": 1,
+    "rejections": []
+  }
+}

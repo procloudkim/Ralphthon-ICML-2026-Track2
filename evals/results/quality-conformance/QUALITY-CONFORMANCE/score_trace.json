@@ -1,0 +1,17 @@
+{
+  "consistency_guards_passed": true,
+  "rationale": "Used one proposal from tri_lens; no averaging. F1 minority_supported/major cap=2. overall_recommendation=2: Reject: major technical, evaluation, reproducibility, ethical, or clarity weaknesses prevent reliable use. confidence=4: Confident, with a small chance of misunderstanding or missing related work.",
+  "rejected_finding_ids": [],
+  "retained_finding_ids": [
+    "F1"
+  ],
+  "scores": {
+    "confidence": 4,
+    "originality": 3,
+    "overall_recommendation": 2,
+    "presentation": 3,
+    "significance": 3,
+    "soundness": 2
+  },
+  "source": "tri_lens"
+}

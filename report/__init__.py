@@ -110,7 +110,7 @@ class _RuntimeMetrics(_StrictMetrics):
     monotonic_deadline: bool
     evaluation_scope: Literal["local_synthetic_hash_distinct_pdf_batch"]
     provider_scope: Literal["local_heuristic_no_network"]
-    real_provider_smoke_status: Literal["unverified"]
+    real_provider_ten_paper_runtime_status: Literal["unverified"]
     real_provider_ten_paper_runtime_seconds: None
 
 

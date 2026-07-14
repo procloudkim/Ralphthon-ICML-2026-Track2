@@ -1,79 +1,107 @@
 # ReviewHarness
 
-ReviewHarness is a local, API-native ICML review kernel for Ralphthon Track 2. It converts a trusted paper identifier and local PDF into a strict, evidence-grounded review while treating all PDF-derived content as untrusted data.
-
-Status: **P0 LOCALLY COMPLETE; LIVE EVENT/HOSTED PROVIDER UNVERIFIED**
+ReviewHarness is a local, API-native ICML review kernel built for Ralphthon Track
+2. It turns a trusted paper identifier and a local PDF into strict review JSON
+while treating every PDF-derived byte as untrusted evidence.
 
 ```text
-trusted assignment metadata + local paper PDF
-    -> secure ingest and paper-local evidence
-    -> full or fast review
-    -> validated ICML review JSON
+trusted assignment + local paper PDF
+    -> secure ingest and parser-owned paragraph blocks
+    -> capability-free reviewer call or deterministic offline provider
+    -> exact block-and-quote evidence resolution
+    -> rubric calibration and constructive comment
+    -> semantic, schema, identity, and security validation
 ```
 
-Human judge labels and private heuristics were unavailable during development. Human correlation is therefore **N/A**, not an estimated or synthetic score. Readiness and numeric results must be taken from freshly generated evaluator artifacts, not from this README.
+## Verified proof boundary
 
-## Three key contributions
+Status as of 2026-07-14:
 
-1. **Evidence-weighted disagreement resolution.** Agreement informs confidence; verified evidence and central-claim impact determine priority. Supported minority findings survive, while unsupported factual criticism is rejected.
-2. **Injection-resilient review boundary.** Paper content is untrusted evidence. Reviewer calls have no dangerous tools or credentials, suspicious instructions are isolated from scoring, and the final result passes sink validation without automatically penalizing scientific merit.
-3. **Deadline-aware parallel review.** Bounded concurrency, paper-local state, full mode, fast fallback, and failure isolation target ten reviews within the twenty-five-minute production window.
+| Surface | Status | Evidence boundary |
+|---|---|---|
+| Local contracts and regression suite | Verified | 241 tests passed; one opt-in real-provider test skipped in the default lane |
+| Public provider-replay conformance | Verified | Central claim, major cited concern, `tri_lens` score provenance, formatter trace, and final validation crossed the real kernel |
+| Local ten-paper runtime | Verified in synthetic scope | 10/10 hash-distinct public PDFs completed with the local heuristic provider |
+| Real Codex provider smoke | Verified in two-request scope | Two concurrent public synthetic requests passed the opt-in test; no event submission occurred |
+| Real-provider ten-paper runtime | **Unverified** | No current ten-paper hosted-provider measurement |
+| Authenticated event execution | Not reverified in this public release | The typed adapter and fail-closed live path exist, but current public artifacts do not reproduce event credentials or receipts |
+| Human-reviewer agreement | **N/A** | Human labels and private judge heuristics were unavailable |
 
-## Architecture summary
+Do not read a green local evaluator as proof of hosted-model quality, event
+readiness, or human correlation. The current machine-readable scopes live in
+[`evals/results/`](evals/results/).
 
-The pipeline is `trusted assignment -> secure PDF ingest -> page-aware evidence -> claim ledger -> independent reviewer perspectives -> evidence gate -> disagreement resolution -> rubric calibration -> constructive comment -> schema and security validation`. Full mode runs method, evidence, and impact perspectives independently; fast mode uses one tri-lens pass behind the same deterministic gates.
+## Quick start
 
-## Security model
-
-Only orchestration owns the trusted paper ID, rubric, deadlines, routing, and submission boundary. PDF text, metadata, links, annotations, and attachments are evidence only and are never executed. Critical and major factual concerns require paper-local support; suspicious instructions are quarantined; raw attack text does not enter calibration; and final validation rejects marker leakage, capability requests, identifier replacement, unsupported retained findings, and malformed output.
-
-## Installation
-
-ReviewHarness requires Python 3.12 and [uv](https://docs.astral.sh/uv/).
+ReviewHarness requires Python 3.12 and
+[`uv`](https://docs.astral.sh/uv/).
 
 ```powershell
 uv sync --locked --python 3.12
 uv run python -m reviewharness --help
-```
-
-The default reviewer is the deterministic offline `LocalHeuristicProvider`. It requires no model key or network access and is the implementation exercised by the local evaluators. The typed Ralphthon event adapter exists in `src/reviewharness/api_adapter.py`, but authenticated assignment download and submission have not been verified against a live event account. The public CLI reviews local PDFs; it does not fetch or submit event data.
-
-## Single-paper command
-
-Full mode runs three independent reviewer perspectives:
-
-```powershell
-uv run python -m reviewharness review tests/fixtures/clean/sample.pdf --paper-id SAMPLE-001 --mode full --output runs/qa/single/review.json
+uv run python -m reviewharness review tests/fixtures/clean/sample.pdf `
+  --paper-id SAMPLE-001 --mode full --output runs/qa/single/review.json
 uv run python -m reviewharness validate runs/qa/single/review.json
 ```
 
-Fast mode uses one combined review call and the same evidence, scoring, schema, and sink-security gates:
+Fast mode uses one tri-lens reviewer call behind the same evidence, calibration,
+and sink gates:
 
 ```powershell
-uv run python -m reviewharness review tests/fixtures/clean/sample.pdf --paper-id SAMPLE-001 --mode fast --output runs/qa/fast/review.json
+uv run python -m reviewharness review tests/fixtures/clean/sample.pdf `
+  --paper-id SAMPLE-001 --mode fast --output runs/qa/fast/review.json
 uv run python -m reviewharness validate runs/qa/fast/review.json
 ```
 
-`--paper-id` is trusted control-plane input. The paper and reviewer provider cannot replace it. A valid public review contains exactly:
+The local `review` and `batch` commands use the deterministic offline provider.
+They require no model key or network access. A valid public result contains exactly:
 
 ```text
 paper_id, soundness, presentation, significance, originality,
 overall_recommendation, confidence, comment
 ```
 
-## Batch command
+`paper_id` always comes from trusted command or assignment input. Dimension scores
+are integers from 1 to 4, Overall Recommendation is 1 to 6, and Confidence is 1 to
+5.
 
-The batch manifest is strict and must contain exactly ten assignments. Relative `pdf_path` values resolve from the repository root or manifest directory. The runner uses a monotonic 1,500-second deadline, bounded paper/model-call concurrency, per-paper artifact isolation, fast fallback, and an append-only completion stream.
+## Review contracts
+
+Full mode runs three independent scientific lenses and then a dedicated score
+calibrator. Fast mode requires one tri-lens response with an explicit score
+proposal. Both modes:
+
+- expose sanitized parser-owned paragraph blocks to the provider;
+- accept only an exact visible block identifier plus a verbatim quote;
+- preserve supported minority findings;
+- reject unsupported critical or major factual criticism;
+- record score provenance as `tri_lens`, `full_calibrator`, or `local_offline`;
+- reject an empty claim ledger;
+- require a cited decision-relevant concern for recommendations from 1 to 3; and
+- validate comment inclusion, trusted identity, score ranges, and security sinks.
+
+There is no fixed-score fallback on a provider-success path. A provider, evidence,
+score-provenance, or semantic failure becomes a typed paper-local failure.
+
+## Ten-paper batch
+
+The public batch manifest is strict and contains exactly ten assignments. Relative
+PDF paths resolve from the repository root or manifest directory.
 
 ```powershell
-uv run python -m reviewharness batch tests/fixtures/batch/assignments.json --output-dir runs/qa/batch --deadline-seconds 1500 --paper-concurrency 5 --llm-concurrency 10
+uv run python -m reviewharness batch tests/fixtures/batch/assignments.json `
+  --output-dir runs/qa/batch --deadline-seconds 1500 `
+  --paper-concurrency 5 --llm-concurrency 10
 ```
 
-One paper failure is handled independently; the command exits nonzero unless every requested review completes within the deadline.
+The runner uses a monotonic deadline, bounded concurrency, isolated paper state,
+fast recovery after a full-mode failure, and an append-only completion stream. One
+paper failure does not cancel its siblings; the command exits nonzero unless every
+requested review succeeds within the deadline.
 
-## Validation and tests
+## Evaluation
 
-These evaluators use controlled synthetic fixtures and the deterministic offline provider. Each command writes its measured JSON before returning success or failure.
+Generate the three saved public metrics with:
 
 ```powershell
 uv run python -m reviewharness eval-quality --output evals/results/quality.json
@@ -81,86 +109,132 @@ uv run python -m reviewharness eval-security --output evals/results/security.jso
 uv run python -m reviewharness eval-runtime --output evals/results/runtime.json
 ```
 
-Quality covers evidence support, unsupported-critique rejection, minority-finding preservation, repeatability, issue stability, and score-comment consistency. Security covers trusted-ID invariance, injection/canary leakage, capability requests, benign quoted attacks, and clean-versus-injected stability. Runtime executes a measured ten-paper local workload plus a forced-failure isolation scenario. None of these fixtures are human ground truth, and none establishes live-model or human-reviewer correlation.
+The lanes intentionally prove different things:
 
-Run the repository checks separately:
+- Quality combines five controlled component cases with one public provider replay
+  through ingest, canonicalization, evidence resolution, calibration, formatting,
+  and final validation. Empty denominators are `null`/N/A and cannot pass.
+- Security combines twelve controlled attack cases with a real clean/injected
+  public PDF pair under the local provider. Tool-call activity is N/A because this
+  lane has no instrumented provider runner; it is not reported as zero.
+- Runtime executes ten hash-distinct public PDFs plus a forced failure-isolation
+  scenario. Its scope is local synthetic execution and excludes hosted inference
+  and network latency.
+
+Run the complete deterministic gate:
 
 ```powershell
-uv run pytest -q
-uv run ruff check src tests report
+uv run python -m pytest -q -p no:cacheprovider
+uv run ruff check --no-cache src tests report
 uv run basedpyright
+git diff --check
 ```
 
-## Output schema
+The optional real-provider smoke uses saved Codex authentication, public synthetic
+input, no event API, and no submission:
 
-A valid public review contains exactly `paper_id`, `soundness`, `presentation`, `significance`, `originality`, `overall_recommendation`, `confidence`, and `comment`. Dimension scores are integers from 1 to 4, Overall Recommendation is 1 to 6, Confidence is 1 to 5, and the constructive comment is nonempty. `paper_id` always comes from trusted command or assignment input.
+```powershell
+$env:RUN_CODEX_EXEC_SMOKE = '1'
+uv run python -m pytest -q -p no:cacheprovider `
+  tests/integration/test_live_provider.py `
+  -k real_two_paper_codex_exec_provider_smoke
+Remove-Item Env:RUN_CODEX_EXEC_SMOKE
+```
+
+A passing two-request smoke must not be extrapolated to ten-paper runtime or review
+quality.
+
+## Live boundary
+
+The `live` command is a mutating event workflow: it fetches assignments, downloads
+papers, submits validated reviews, and checks receipts. It is not a local demo. It
+requires an explicitly authorized `RALPHTHON_SETUP_TOKEN` and defaults to the
+documented event URL.
+
+The live path uses `codex-exec`, permits at most one retry for a typed transient
+provider failure, and never replaces a failed provider review with the local
+heuristic. `--provider local-heuristic` is rejected before event access. Each paper
+ends in either a verified receipt or a sanitized typed failure record.
+
+## Security boundary
+
+Only orchestration owns paper identity, rubric, deadlines, routing, credentials,
+and submission authority. Paper text, metadata, links, annotations, attachments,
+and embedded instructions are evidence only and are never executed.
+
+Reviewer calls receive sanitized evidence, trusted prompts, the rubric, and a
+closed output schema. They receive no shell, secrets, arbitrary network, event API,
+or cross-paper mutation capability. Detection does not automatically lower paper
+scores; confidence changes only when sanitization reduces scientific evidence.
+
+## Artifacts and report
+
+For a single review under `runs/qa/single`, the explicit `--output` file is the
+public result and `runs/qa/single/<paper_id>/` contains the audit trace:
+
+```text
+assignment.json              trusted metadata
+pdf_hash.json                hash and page count, not PDF bytes
+security_scan.json
+parsed_structure.json
+claim_ledger.json
+reviewer_outputs.json
+normalized_findings.json
+rejected_findings.json
+score_trace.json
+comment_trace.json
+review.json                  validated internal result
+events.jsonl
+```
+
+JSON stages have SHA-256 manifests; `events.jsonl` is append-oriented. Batch runs
+also write `<paper_id>/final_review.json`, `completions.jsonl`, and `summary.json`.
+Secret-like values are redacted from persisted traces.
+
+The report builder accepts only strict evaluator JSON and renders at most four
+pages:
+
+```powershell
+uv run python report/build_report.py --metrics-dir evals/results `
+  --output output/pdf/reviewharness-report.pdf
+```
+
+The current provider-replay trace is saved under
+`evals/results/quality-conformance/`. Verbose runtime traces are reproducible and
+ignored; `runtime.json` is the compact canonical runtime result.
 
 ## Known limitations
 
-- PyMuPDF has no OCR or image/QR semantic analysis, so image-only content can reduce evidence coverage.
-- Injection detection is defense in depth; capability isolation and final sink validation are the primary controls.
-- The deterministic offline provider proves local contracts and orchestration, not hosted-model quality or agreement with human reviewers.
-- External novelty and unchecked technical details remain uncertain without external evidence.
-- Authenticated event envelopes, idempotency, API limits, and submission receipts remain unverified.
+- PyMuPDF has no OCR or image/QR semantic analysis; image-only content can reduce
+  evidence coverage.
+- The public provider replay proves contract conformance, not open-ended hosted
+  review quality.
+- External novelty and unchecked technical details remain uncertain without an
+  independent literature source.
+- Real-provider full-mode latency and ten-paper throughput are unmeasured.
+- Current public artifacts do not reproduce authenticated event envelopes, API
+  limits, idempotency behavior, or receipts.
+- Human correlation remains N/A until independent labels exist.
 
-## Reproducibility notes
+Keep real assignments, private PDFs, credentials, run directories, submissions,
+and receipts out of Git. The intended private locations are ignored.
 
-### Anonymous report build
+## Repository map
 
-The report builder accepts only strict saved evaluator JSON and renders a four-page PDF. Generate all three current metric files first:
-
-```powershell
-uv run python report/build_report.py --metrics-dir evals/results --output output/pdf/reviewharness-report.pdf
-```
-
-Every numeric claim in the report is loaded from `evals/results/quality.json`, `security.json`, or `runtime.json`. Human correlation remains N/A until organizers provide real labels.
-
-### Artifact layout
-
-For a single review whose output directory is `runs/qa/single`, the public result is the explicit `--output` path and the audit trace is isolated below `runs/qa/single/<paper_id>/`:
-
-```text
-review.json                         public CLI output
-<paper_id>/assignment.json          trusted metadata
-<paper_id>/pdf_hash.json            hash and page count, not PDF bytes
-<paper_id>/security_scan.json
-<paper_id>/parsed_structure.json
-<paper_id>/claim_ledger.json
-<paper_id>/reviewer_outputs.json
-<paper_id>/normalized_findings.json
-<paper_id>/rejected_findings.json
-<paper_id>/score_trace.json
-<paper_id>/review.json               validated internal result
-<paper_id>/events.jsonl
-```
-
-Each per-paper JSON stage also has a SHA-256 manifest; `events.jsonl` is the append-oriented exception. A batch additionally writes `<paper_id>/final_review.json`, root-level `completions.jsonl`, and `summary.json`. Evaluator evidence lives in `evals/results/`, and the report is written to `output/pdf/reviewharness-report.pdf`.
-
-Secret-like values are redacted from persisted traces. Keep real assignments, private PDFs, credentials, run directories, and event submissions out of Git; the intended private locations (`runs/`, `assignments/`, `private_papers/`, and `submissions/`) are ignored. Never add a private PDF or submission merely to reproduce a local command.
-
-### Detailed security boundaries
-
-- Paper text, metadata, links, annotations, and attachments are evidence only. PDF actions and links are never executed.
-- Reviewer calls receive sanitized page evidence, trusted rubric/prompts, and a strict output schema. They receive no shell, secrets, arbitrary tools, submission capability, or cross-paper state.
-- Critical and major factual findings require paper-local locators. Unsupported factual criticism is rejected; a supported minority finding is not removed by majority vote.
-- `schemas/finding.schema.json` is the canonical storage-compatibility shape, not a schema-only safety proof. Runtime resolution verifies locators against parsed blocks and maps `target_claim_id` through the claim ledger; final validation rejects unsupported retained states, retained objective or mixed critical/major findings without a verified locator or recommended check, and finding-trace mismatches.
-- Detection alone does not lower scientific scores. Confidence may fall only when sanitization materially limits review evidence.
-- Internal reviews use trusted `paper_id`, `overall_recommendation`, and `comment`. At the isolated event boundary, the server-owned assignment `ordinal` is used and the adapter translates `overall_recommendation -> overall` and `comment -> comments`.
-- The current event response models encode the documented envelope and reject unsafe downloads or malformed receipts. Final organizer envelope changes, credentials, idempotency behavior, API limits, and authenticated live execution remain unverified until exercised against the event service.
-
-### Repository map
-
-- `src/reviewharness/kernel.py` and `kernel_support.py`: single-paper orchestration, sanitized evidence preparation, and artifact persistence
-- `src/reviewharness/providers.py`, `local_provider.py`, and `reviewers.py`: capability-free provider contract, deterministic offline implementation, and bounded full/fast reviewer calls
-- `src/reviewharness/parser.py`, `secure_ingest.py`, and `injection.py`: page-aware untrusted-PDF ingest and quarantine
-- `src/reviewharness/claims.py`, `evidence.py`, `scoring.py`, `formatter.py`, and `validation.py`: claim/evidence resolution, rubric calibration, comment construction, and final sink gates
-- `src/reviewharness/deadline.py`, `runner.py`, and `artifacts.py`: monotonic deadline control, bounded streaming batches, recovery, and isolated persistence
-- `src/reviewharness/eval_quality.py`, `eval_security.py`, and `eval_runtime.py`: controlled quality, security, and runtime evaluators
-- `src/reviewharness/cli.py` and `api_adapter.py`: public local command surface and isolated live-event wire boundary
-- `prompts/`: trusted full/fast reviewer prompts
-- `rubrics/icml_review.yaml`: ICML score anchors
-- `schemas/`: canonical storage-compatibility and public-submission schemas; runtime gates remain authoritative for retained findings
-- `tests/fixtures/`: controlled clean, adversarial, quality, batch, and report fixtures
-- `report/build_report.py`: strict artifact-derived four-page PDF builder
-- `.agent/RALPHTHON_EXECPLAN.md`: living implementation and acceptance plan
-- `PROGRESS.md` and `EXPERIMENTS.jsonl`: verified progress and experiment ledger
+- `src/reviewharness/kernel.py`, `kernel_support.py`: orchestration and sanitized
+  provider evidence
+- `provider_contracts.py`, `claims.py`, `evidence.py`: exact provider-candidate
+  canonicalization and evidence resolution
+- `reviewers.py`, `codex_provider.py`, `local_provider.py`: full/fast reviewer and
+  calibrator contracts
+- `scoring.py`, `formatter.py`, `validation.py`: rubric calibration, inclusion
+  trace, and fail-closed final gates
+- `secure_ingest.py`, `parser.py`, `injection.py`: untrusted PDF ingestion
+- `runner.py`, `deadline.py`, `artifacts.py`: batch scheduling and isolated traces
+- `live.py`, `live_cli.py`, `api_adapter.py`: fail-closed event boundary
+- `eval_quality.py`, `eval_security.py`, `eval_runtime.py`: scoped public evaluators
+- `tests/fixtures/`: generated public clean, adversarial, conformance, and runtime
+  inputs
+- `report/`: strict artifact-derived four-page report
+- `.agent/RALPHTHON_EXECPLAN.md`: living improvement and acceptance plan
+- `PROGRESS.md`: current measured status and proof gaps

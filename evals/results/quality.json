@@ -9,7 +9,9 @@
   "valid_completion_rate": 1.0,
   "repeatability_rate": 1.0,
   "top_issue_stability_rate": 1.0,
-  "duration_seconds": 0.030015500000445172,
+  "provider_conformance_passed": true,
+  "evaluation_scope": "synthetic_component_cases_plus_public_provider_replay",
+  "duration_seconds": 0.11148170003434643,
   "passed": true,
   "human_correlation": null,
   "human_correlation_unavailable_reason": "human labels and private judge heuristics were unavailable during development"
