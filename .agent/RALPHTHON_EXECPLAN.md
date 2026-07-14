@@ -1,6 +1,6 @@
 # ReviewHarness Ralphthon Track 2 ExecPlan
 
-Status: M0-M2 COMPLETE; M3 LIVE FAILURE POLICY IN PROGRESS
+Status: M0-M3 COMPLETE; M4 EVALUATOR SCOPE HARDENING IN PROGRESS
 Date: 2026-07-14
 Timezone: Asia/Seoul
 
@@ -390,13 +390,17 @@ public artifacts above are.
   inclusion trace, and made empty ledgers, low-score generic prose, and omitted
   decision-relevant minority concerns fail closed. The null-proposal falsifier moved
   from RED to GREEN; 227 tests pass with one opt-in smoke skipped. Decision: KEEP.
-- [ ] M3 automatic live heuristic submission removed and failure isolation verified.
+- [x] 2026-07-14 19:34 +09:00 - M3 removed automatic heuristic substitution
+  from live execution, allowed one transient-only provider retry, added typed
+  provider/evidence/score/semantic terminal failures, and verified that one failed
+  paper creates no receipt while a valid sibling still submits. The full suite
+  reports 237 passed and one opt-in smoke skipped. Decision: KEEP.
 - [ ] M4 independent scoped evaluators verified.
 - [ ] M5 documentation, public artifacts, final diff, and branch push completed.
 
-Next exact action: remove the live kernel's automatic local-heuristic substitution,
-preserve one bounded provider retry, and prove typed terminal failures cannot create
-submission receipts or block valid sibling papers.
+Next exact action: make evaluator denominators and unobserved activity explicit,
+route quality conformance through the real public kernel/replay seam, pair clean and
+injected security inputs, and replace repeated runtime PDFs with hash-distinct files.
 
 ### Decision log
 
@@ -431,6 +435,8 @@ submission receipts or block valid sibling papers.
   fallback today.
 - A frozen dataclass exception cannot safely accept Python traceback assignment;
   the typed kernel error must remain mutable even though its payload is bounded.
+- Kernel-internal retry hides actual retry counts from the live terminal record; the
+  live loop now owns one transient-only whole-review retry and records it exactly.
 - Final validation checks structure, security phrases, and broad consistency but does
   not require a concrete cited concern for a negative recommendation.
 - Current quality, security, and runtime evaluators share implementation assumptions

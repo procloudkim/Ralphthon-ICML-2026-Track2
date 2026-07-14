@@ -159,6 +159,7 @@ def live_command(
                     f"mode={item.review_mode.value}",
                     f"status={item.status.value}",
                     f"receipt={item.receipt_verified}",
+                    f"failure={item.failure.value if item.failure else 'none'}",
                 )
             )
         )

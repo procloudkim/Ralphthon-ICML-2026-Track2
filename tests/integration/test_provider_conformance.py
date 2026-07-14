@@ -4,17 +4,22 @@ from pathlib import Path
 from typing import ClassVar, Final
 
 import anyio
+import pytest
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
+import reviewharness.formatter as review_formatter
 from reviewharness.deadline import ReviewMode
-from reviewharness.kernel import ReviewKernel
+from reviewharness.formatter import FormattedReview
+from reviewharness.kernel import KernelReviewError, ReviewKernel, ReviewKernelPolicy
 from reviewharness.kernel_support import prepare_evidence
 from reviewharness.provider_contracts import ProviderContractStats
 from reviewharness.providers import (
     ReviewerResponse,
+    ScriptedError,
     ScriptedReviewerProvider,
     ScriptedSuccess,
 )
+from reviewharness.reviewers import TriLensCandidates
 from reviewharness.schemas import (
     CommentInclusionTrace,
     PaperClaim,
@@ -167,3 +172,107 @@ def test_full_mode_uses_dedicated_calibrator_over_canonical_structures(
         "canonical_claims_and_findings_only",
     )
     assert trace.source is ScoreSource.FULL_CALIBRATOR
+
+
+def test_transient_provider_failure_is_exposed_for_one_live_retry(
+    tmp_path: Path,
+) -> None:
+    """The kernel distinguishes retryable transport failure from bad evidence."""
+    provider = ScriptedReviewerProvider((ScriptedError("temporary outage"),))
+    assignment = TrustedAssignment(
+        paper_id="CONFORMANCE-TRANSIENT",
+        pdf_path=CONFORMANCE_PDF,
+    )
+    kernel = ReviewKernel(
+        provider,
+        policy=ReviewKernelPolicy(
+            require_reviewer_output=True,
+            retry_reviewer_failures=False,
+        ),
+    )
+
+    with pytest.raises(KernelReviewError) as raised:
+        _ = anyio.run(kernel.review, assignment, ReviewMode.FAST, tmp_path)
+
+    assert raised.value.failure_kind == "transient_provider_failure"
+
+
+def test_missing_score_and_rejected_claim_have_distinct_failure_kinds(
+    tmp_path: Path,
+) -> None:
+    """Score and evidence contracts do not collapse into one generic error."""
+    valid = PROVIDER_OUTPUT.read_text(encoding="utf-8")
+    null_score = (
+        TriLensCandidates.model_validate_json(valid)
+        .model_copy(update={"score_proposal": None})
+        .model_dump_json()
+    )
+    cases = (
+        (null_score, "score_provenance_failure"),
+        (valid.replace('"p1-b2"', '"p1-b99"'), "evidence_contract_failure"),
+    )
+    for index, (raw_output, expected) in enumerate(cases, start=1):
+        provider = ScriptedReviewerProvider(
+            (ScriptedSuccess(ReviewerResponse(raw_output=raw_output)),)
+        )
+        assignment = TrustedAssignment(
+            paper_id=f"CONFORMANCE-FAILURE-{index}",
+            pdf_path=CONFORMANCE_PDF,
+        )
+        kernel = ReviewKernel(
+            provider,
+            policy=ReviewKernelPolicy(
+                require_reviewer_output=True,
+                retry_reviewer_failures=False,
+            ),
+        )
+
+        with pytest.raises(KernelReviewError) as raised:
+            _ = anyio.run(kernel.review, assignment, ReviewMode.FAST, tmp_path)
+
+        assert raised.value.failure_kind == expected
+
+
+def test_semantic_sink_failure_is_exposed_without_review_artifact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A formatter trace defect becomes terminal before submission can exist."""
+    original = review_formatter.build_review_comment
+
+    def omit_concern_trace(
+        claims: tuple[PaperClaim, ...],
+        findings: tuple[ReviewFinding, ...],
+        calibration: ScoreCalibration,
+    ) -> FormattedReview:
+        formatted = original(claims, findings, calibration)
+        return FormattedReview(
+            formatted.comment,
+            CommentInclusionTrace(
+                included_claim_ids=formatted.trace.included_claim_ids,
+            ),
+        )
+
+    monkeypatch.setattr(review_formatter, "build_review_comment", omit_concern_trace)
+    provider = ScriptedReviewerProvider(
+        (
+            ScriptedSuccess(
+                ReviewerResponse(raw_output=PROVIDER_OUTPUT.read_text("utf-8"))
+            ),
+        )
+    )
+    assignment = TrustedAssignment(
+        paper_id="CONFORMANCE-SEMANTIC",
+        pdf_path=CONFORMANCE_PDF,
+    )
+
+    with pytest.raises(KernelReviewError) as raised:
+        _ = anyio.run(
+            ReviewKernel(provider).review,
+            assignment,
+            ReviewMode.FAST,
+            tmp_path,
+        )
+
+    assert raised.value.failure_kind == "semantic_validation_failure"
+    assert not (tmp_path / assignment.paper_id / "review.json").exists()

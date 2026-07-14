@@ -89,6 +89,7 @@ class ReviewerFailureKind(StrEnum):
     TIMEOUT = "timeout"
     REFUSAL = "refusal"
     MALFORMED = "malformed"
+    SCORE_PROVENANCE = "score_provenance"
     PROVIDER = "provider"
 
 
@@ -276,11 +277,30 @@ class ReviewerOrchestrator:
         except ValidationError as error:
             return ReviewerFailure(
                 lens,
-                ReviewerFailureKind.MALFORMED,
+                self._validation_failure_kind(lens, error),
                 attempts,
                 str(error),
                 retryable=False,
             )
+
+    @staticmethod
+    def _validation_failure_kind(
+        lens: ReviewerLens,
+        error: ValidationError,
+    ) -> ReviewerFailureKind:
+        score_only_lens = lens in {
+            ReviewerLens.TRI_LENS,
+            ReviewerLens.SCORE_CALIBRATOR,
+        }
+        missing_score = any(
+            issue.get("loc", ())[0:1] == ("score_proposal",)
+            for issue in error.errors(include_url=False)
+        )
+        return (
+            ReviewerFailureKind.SCORE_PROVENANCE
+            if score_only_lens and missing_score
+            else ReviewerFailureKind.MALFORMED
+        )
 
     def _parse(
         self, lens: ReviewerLens, raw_output: str, attempts: int

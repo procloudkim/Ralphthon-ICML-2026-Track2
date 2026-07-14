@@ -52,7 +52,7 @@ def _tri_lens_json() -> str:
                             "page": 1,
                             "block_id": "p1-b2",
                             "quote": (
-                                "evaluates a compact classifier on two public datasets"
+                                "evaluate a compact classifier on two public datasets"
                             ),
                         }
                     ],

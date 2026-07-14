@@ -215,7 +215,7 @@ def test_fast_mode_rejects_null_score_provenance() -> None:
     # Then: missing scientific score provenance is a malformed response.
     outcome = result.outcomes[0]
     assert isinstance(outcome, ReviewerFailure)
-    assert outcome.kind is ReviewerFailureKind.MALFORMED
+    assert outcome.kind is ReviewerFailureKind.SCORE_PROVENANCE
 
 
 def test_full_calibrator_uses_canonical_payload_and_overwrites_authority() -> None:

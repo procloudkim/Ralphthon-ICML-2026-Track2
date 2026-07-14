@@ -96,11 +96,15 @@ class ReviewKernel:
         """Return one validated review or a typed isolated paper failure."""
         try:
             return await self._review(assignment, mode, output_dir, shared_limiter)
+        except validation.ReviewValidationError as error:
+            raise KernelReviewError(
+                assignment.paper_id,
+                "semantic_validation_failure",
+            ) from error
         except (
             artifacts.ArtifactPathError,
             OSError,
             parser.PdfParseError,
-            validation.ReviewValidationError,
         ) as error:
             raise KernelReviewError(
                 assignment.paper_id,
@@ -137,7 +141,16 @@ class ReviewKernel:
         if self._require_reviewer_output and not reviewer_data.outputs:
             raise KernelReviewError(
                 assignment.paper_id,
-                "reviewer_provider_unavailable",
+                _reviewer_failure_kind(run),
+            )
+        if (
+            not self._is_local_offline
+            and mode is ReviewMode.FAST
+            and reviewer_data.contract_stats.accepted_claims == 0
+        ):
+            raise KernelReviewError(
+                assignment.paper_id,
+                "evidence_contract_failure",
             )
         ledger = claims.build_claim_ledger(reviewer_data.claims, prepared.blocks)
         if not ledger:
@@ -159,7 +172,7 @@ class ReviewKernel:
             if len(reviewer_data.proposals) != 1:
                 raise KernelReviewError(
                     assignment.paper_id,
-                    "score_provenance_unavailable",
+                    "score_provenance_failure",
                 )
             proposal = reviewer_data.proposals[0]
             score_source = (
@@ -183,7 +196,7 @@ class ReviewKernel:
             ):
                 raise KernelReviewError(
                     assignment.paper_id,
-                    "score_provenance_unavailable",
+                    _reviewer_outcome_failure_kind(calibration_outcome),
                 )
             calibration_output = calibration_outcome.output
             proposal = calibration_output.score_proposal
@@ -262,3 +275,28 @@ class ReviewKernel:
             ),
         )
         return validated
+
+
+def _reviewer_failure_kind(run: reviewers.ReviewerRunResult) -> str:
+    failures = tuple(
+        outcome
+        for outcome in run.outcomes
+        if isinstance(outcome, reviewers.ReviewerFailure)
+    )
+    if any(
+        failure.kind is reviewers.ReviewerFailureKind.SCORE_PROVENANCE
+        for failure in failures
+    ):
+        return "score_provenance_failure"
+    if failures and all(failure.retryable for failure in failures):
+        return "transient_provider_failure"
+    return "provider_failure"
+
+
+def _reviewer_outcome_failure_kind(outcome: reviewers.ReviewerOutcome) -> str:
+    if isinstance(outcome, reviewers.ReviewerFailure):
+        if outcome.kind is reviewers.ReviewerFailureKind.SCORE_PROVENANCE:
+            return "score_provenance_failure"
+        if outcome.retryable:
+            return "transient_provider_failure"
+    return "provider_failure"

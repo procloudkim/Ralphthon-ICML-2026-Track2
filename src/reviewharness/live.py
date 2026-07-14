@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from time import monotonic
-from typing import TYPE_CHECKING, Final, override
+from typing import TYPE_CHECKING, Final, Protocol, override
 
 import anyio
 
@@ -14,12 +14,15 @@ from .api_adapter import (
     ApiContractError,
     CredentialExchangeRequest,
     EventAssignment,
+    IdempotencyKey,
+    SubmissionReceipt,
 )
 from .artifacts import ArtifactPathError, ArtifactStore
 from .codex_provider import CodexExecReviewerProvider
 from .deadline import ReviewMode
 from .kernel import KernelReviewError, ReviewKernel, ReviewKernelPolicy
 from .live_support import (
+    LiveFailureKind,
     LivePaperResult,
     LiveProvider,
     LiveProviderUnavailableError,
@@ -33,15 +36,16 @@ from .live_support import (
     idempotency_key,
     success_result,
 )
-from .local_provider import LocalHeuristicProvider
 from .runbook_adapter import (
     GuidanceReasonCode,
     RunbookApiAdapter,
     StatusGuidance,
 )
-from .schemas import TrustedAssignment
+from .schemas import ReviewSubmission, TrustedAssignment
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from pydantic import SecretStr
 
 _MODEL_TIMEOUT_SECONDS: Final = 240.0
@@ -59,6 +63,53 @@ class LivePreparation:
     credential: AgentCredential
     assignments: tuple[EventAssignment, ...]
     deadline_seconds: float
+
+
+class LiveEventAdapter(Protocol):
+    """Minimal event transport used by the isolated live execution loop."""
+
+    async def download_pdf(
+        self,
+        credential: AgentCredential,
+        assignment: EventAssignment,
+        destination: Path,
+    ) -> Path:
+        """Download one trusted assignment PDF to the isolated paper directory."""
+        ...
+
+    async def submit_review(
+        self,
+        credential: AgentCredential,
+        assignment: EventAssignment,
+        review: ReviewSubmission,
+        idempotency_key: IdempotencyKey | None = None,
+    ) -> SubmissionReceipt:
+        """Submit one validated review and return a verified receipt."""
+        ...
+
+
+class LiveReviewKernel(Protocol):
+    """Minimal review boundary used by the live execution loop."""
+
+    async def review(
+        self,
+        assignment: TrustedAssignment,
+        mode: ReviewMode,
+        output_dir: Path,
+        shared_limiter: anyio.CapacityLimiter | None = None,
+    ) -> ReviewSubmission:
+        """Return one validated review or raise a typed paper-local failure."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class LiveExecutionContext:
+    """Trusted state shared by one bounded live assignment execution."""
+
+    preparation: LivePreparation
+    config: LiveRunConfig
+    store: ArtifactStore
+    started_at: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,9 +201,6 @@ async def run_live_event(
     """Fetch ten assignments and submit each validated review immediately."""
     ensure_live_provider(run_config.provider)
     started_at = monotonic()
-    results: dict[int, LivePaperResult] = {}
-    paper_limiter = anyio.CapacityLimiter(run_config.paper_concurrency)
-    model_limiter = anyio.CapacityLimiter(run_config.paper_concurrency)
     async with create_event_client() as client:
         adapter = RunbookApiAdapter(api_config, client)
         prepared = await prepare_live_run(adapter, setup_token, run_config)
@@ -169,105 +217,144 @@ async def run_live_event(
                 retry_reviewer_failures=False,
             ),
         )
-        fallback_kernel = ReviewKernel(
-            LocalHeuristicProvider(),
-            policy=ReviewKernelPolicy(confidence_cap=2),
+        return await execute_live_reviews(
+            adapter,
+            codex_kernel,
+            LiveExecutionContext(
+                prepared,
+                effective_config,
+                store,
+                started_at,
+            ),
         )
 
-        async def worker(assignment: EventAssignment) -> None:
-            async with paper_limiter:
-                paper_started = monotonic()
-                paper_id = f"ordinal-{assignment.ordinal:02d}"
-                review_mode = LiveReviewMode.CODEX_EXEC
-                retries = 0
-                try:
-                    usable = _usable_seconds(
-                        effective_config,
-                        started_at,
-                        paper_started,
-                    )
-                    with anyio.fail_after(usable):
-                        pdf_path = await adapter.download_pdf(
-                            prepared.credential,
-                            assignment,
-                            store.paper_directory(paper_id) / "paper.pdf",
-                        )
-                        trusted = TrustedAssignment(
-                            paper_id=paper_id,
-                            pdf_path=pdf_path,
-                            title=assignment.paper.title or None,
-                            ordinal=assignment.ordinal,
-                        )
-                        try:
-                            review = await codex_kernel.review(
-                                trusted,
-                                ReviewMode.FAST,
-                                store.root,
-                                model_limiter,
-                            )
-                        except KernelReviewError as error:
-                            if error.failure_kind != "reviewer_provider_unavailable":
-                                raise
-                            review_mode = LiveReviewMode.HEURISTIC_FALLBACK
-                            retries = 1
-                            review = await fallback_kernel.review(
-                                trusted,
-                                ReviewMode.FAST,
-                                store.root,
-                                model_limiter,
-                            )
-                        receipt = await adapter.submit_review(
-                            prepared.credential,
-                            assignment,
-                            review,
-                            idempotency_key(assignment, review),
-                        )
-                        _ = store.write_json(
-                            paper_id,
-                            "submission_receipt",
-                            receipt.model_dump(mode="json"),
-                        )
-                    result = success_result(
-                        LiveResultContext(
-                            paper_id,
-                            assignment.ordinal,
-                            review_mode,
-                            paper_started,
-                            retries,
-                        ),
-                        review,
-                    )
-                except Exception as error:  # noqa: BLE001  # noqa: BROAD_EXCEPT_OK
-                    result = failure_result(
-                        LiveResultContext(
-                            paper_id,
-                            assignment.ordinal,
-                            review_mode,
-                            paper_started,
-                            retries,
-                        ),
-                        type(error).__name__,
-                    )
-                results[assignment.ordinal] = result
-                try:
-                    _ = store.append_completion(paper_id, completion_payload(result))
-                except (ArtifactPathError, OSError, ValueError):
-                    results[assignment.ordinal] = failure_result(
-                        LiveResultContext(
-                            paper_id,
-                            assignment.ordinal,
-                            review_mode,
-                            paper_started,
-                            retries,
-                        ),
-                        "completion_record_failed",
-                    )
 
-        async with anyio.create_task_group() as task_group:
-            for assignment in prepared.assignments:
-                _ = task_group.start_soon(worker, assignment)
+async def execute_live_reviews(
+    adapter: LiveEventAdapter,
+    kernel: LiveReviewKernel,
+    context: LiveExecutionContext,
+) -> LiveSummary:
+    """Review assignments concurrently with one transient retry and no substitution."""
+    prepared = context.preparation
+    run_config = context.config
+    store = context.store
+    started_at = context.started_at
+    results: dict[int, LivePaperResult] = {}
+    paper_limiter = anyio.CapacityLimiter(run_config.paper_concurrency)
+    model_limiter = anyio.CapacityLimiter(run_config.paper_concurrency)
+
+    async def worker(assignment: EventAssignment) -> None:
+        async with paper_limiter:
+            paper_started = monotonic()
+            paper_id = f"ordinal-{assignment.ordinal:02d}"
+            review_mode = LiveReviewMode.CODEX_EXEC
+            retries = 0
+            stage = "download"
+            try:
+                usable = _usable_seconds(run_config, started_at, paper_started)
+                with anyio.fail_after(usable):
+                    pdf_path = await adapter.download_pdf(
+                        prepared.credential,
+                        assignment,
+                        store.paper_directory(paper_id) / "paper.pdf",
+                    )
+                    trusted = TrustedAssignment(
+                        paper_id=paper_id,
+                        pdf_path=pdf_path,
+                        title=assignment.paper.title or None,
+                        ordinal=assignment.ordinal,
+                    )
+                    stage = "review"
+                    try:
+                        review = await kernel.review(
+                            trusted,
+                            ReviewMode.FAST,
+                            store.root,
+                            model_limiter,
+                        )
+                    except KernelReviewError as error:
+                        if error.failure_kind != "transient_provider_failure":
+                            raise
+                        retries = 1
+                        review = await kernel.review(
+                            trusted,
+                            ReviewMode.FAST,
+                            store.root,
+                            model_limiter,
+                        )
+                    stage = "submission"
+                    receipt = await adapter.submit_review(
+                        prepared.credential,
+                        assignment,
+                        review,
+                        idempotency_key(assignment, review),
+                    )
+                    _ = store.write_json(
+                        paper_id,
+                        "submission_receipt",
+                        receipt.model_dump(mode="json"),
+                    )
+                result = success_result(
+                    LiveResultContext(
+                        paper_id,
+                        assignment.ordinal,
+                        review_mode,
+                        paper_started,
+                        retries,
+                    ),
+                    review,
+                )
+            except Exception as error:  # noqa: BLE001  # noqa: BROAD_EXCEPT_OK
+                result = failure_result(
+                    LiveResultContext(
+                        paper_id,
+                        assignment.ordinal,
+                        review_mode,
+                        paper_started,
+                        retries,
+                    ),
+                    classify_live_failure(error, stage),
+                )
+            results[assignment.ordinal] = result
+            try:
+                _ = store.append_completion(paper_id, completion_payload(result))
+            except (ArtifactPathError, OSError, ValueError):
+                results[assignment.ordinal] = failure_result(
+                    LiveResultContext(
+                        paper_id,
+                        assignment.ordinal,
+                        review_mode,
+                        paper_started,
+                        retries,
+                    ),
+                    LiveFailureKind.COMPLETION_RECORD,
+                )
+
+    async with anyio.create_task_group() as task_group:
+        for assignment in prepared.assignments:
+            _ = task_group.start_soon(worker, assignment)
     items = tuple(results[ordinal] for ordinal in sorted(results))
     return LiveSummary(items=items, total_seconds=monotonic() - started_at)
+
+
+def classify_live_failure(error: Exception, stage: str) -> LiveFailureKind:
+    """Map one bounded exception to a redaction-safe terminal category."""
+    if isinstance(error, TimeoutError):
+        return LiveFailureKind.DEADLINE
+    if isinstance(error, KernelReviewError):
+        return {
+            "transient_provider_failure": LiveFailureKind.PROVIDER,
+            "provider_failure": LiveFailureKind.PROVIDER,
+            "evidence_contract_failure": LiveFailureKind.EVIDENCE_CONTRACT,
+            "unreviewable_empty_claim_ledger": LiveFailureKind.EVIDENCE_CONTRACT,
+            "score_provenance_failure": LiveFailureKind.SCORE_PROVENANCE,
+            "semantic_validation_failure": LiveFailureKind.SEMANTIC_VALIDATION,
+        }.get(error.failure_kind, LiveFailureKind.UNEXPECTED)
+    return {
+        "download": LiveFailureKind.DOWNLOAD,
+        "review": LiveFailureKind.UNEXPECTED,
+        "submission": LiveFailureKind.SUBMISSION,
+    }.get(stage, LiveFailureKind.UNEXPECTED)
 
 
 def _usable_seconds(
