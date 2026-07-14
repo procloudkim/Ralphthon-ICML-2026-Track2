@@ -11,6 +11,7 @@ from reviewharness.schemas import (
     ReviewFinding,
     ReviewScores,
     ScoreProposal,
+    ScoreSource,
 )
 from reviewharness.scoring import (
     CalibrationContext,
@@ -65,7 +66,11 @@ def _finding(
 def test_verified_minority_major_finding_is_preserved_and_proportionate() -> None:
     # Given: one decision-relevant major finding supported by a minority reviewer
     finding = _finding(FindingSeverity.MAJOR, FindingStatus.MINORITY_SUPPORTED)
-    context = CalibrationContext(proposal=_proposal(), findings=(finding,))
+    context = CalibrationContext(
+        proposal=_proposal(),
+        source=ScoreSource.LOCAL_OFFLINE,
+        findings=(finding,),
+    )
 
     # When: the trusted rubric calibrates the proposal without voting
     calibration = calibrate_scores(context, load_rubric())
@@ -81,7 +86,11 @@ def test_verified_minority_major_finding_is_preserved_and_proportionate() -> Non
 def test_unsupported_critical_finding_cannot_change_scientific_scores() -> None:
     # Given: a severe criticism rejected by the evidence gate
     finding = _finding(FindingSeverity.CRITICAL, FindingStatus.UNSUPPORTED_REJECTED)
-    context = CalibrationContext(proposal=_proposal(), findings=(finding,))
+    context = CalibrationContext(
+        proposal=_proposal(),
+        source=ScoreSource.LOCAL_OFFLINE,
+        findings=(finding,),
+    )
 
     # When: scores are calibrated from retained evidence only
     calibration = calibrate_scores(context, load_rubric())
@@ -94,7 +103,11 @@ def test_unsupported_critical_finding_cannot_change_scientific_scores() -> None:
 def test_verified_critical_finding_enforces_dimension_and_overall_guards() -> None:
     # Given: a verified critical flaw directly affecting the central claim
     finding = _finding(FindingSeverity.CRITICAL, FindingStatus.CONSENSUS_SUPPORTED)
-    context = CalibrationContext(proposal=_proposal(), findings=(finding,))
+    context = CalibrationContext(
+        proposal=_proposal(),
+        source=ScoreSource.LOCAL_OFFLINE,
+        findings=(finding,),
+    )
 
     # When: canonical contradiction guards are applied
     calibration = calibrate_scores(context, load_rubric())
@@ -107,7 +120,11 @@ def test_verified_critical_finding_enforces_dimension_and_overall_guards() -> No
 def test_contested_major_blocks_high_overall_without_factual_penalty() -> None:
     # Given: a major concern whose evidence remains contested
     finding = _finding(FindingSeverity.MAJOR, FindingStatus.CONTESTED)
-    context = CalibrationContext(proposal=_proposal(), findings=(finding,))
+    context = CalibrationContext(
+        proposal=_proposal(),
+        source=ScoreSource.LOCAL_OFFLINE,
+        findings=(finding,),
+    )
 
     # When: the scorer separates uncertainty from verified criticism
     calibration = calibrate_scores(context, load_rubric())
@@ -122,6 +139,7 @@ def test_confidence_uses_assessment_uncertainty_not_paper_quality() -> None:
     # Given: high paper scores but materially limited parsing and disagreement
     context = CalibrationContext(
         proposal=_proposal(),
+        source=ScoreSource.LOCAL_OFFLINE,
         findings=(),
         parser_confidence=0.5,
         reviewer_disagreement=0.8,
@@ -168,7 +186,11 @@ def test_extreme_positive_scores_require_linked_strength_evidence() -> None:
 
     # When: no structured strength findings support the extreme proposal
     calibration = calibrate_scores(
-        CalibrationContext(proposal=proposal, findings=()),
+        CalibrationContext(
+            proposal=proposal,
+            source=ScoreSource.LOCAL_OFFLINE,
+            findings=(),
+        ),
         load_rubric(),
     )
 

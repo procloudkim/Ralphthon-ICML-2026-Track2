@@ -1,8 +1,0 @@
-{"event": "assignment_validated", "mode": "full", "paper_id": "SAMPLE-009"}
-{"event": "pdf_ingested", "mode": "full", "paper_id": "SAMPLE-009"}
-{"event": "evidence_sanitized", "mode": "full", "paper_id": "SAMPLE-009"}
-{"event": "claims_built", "mode": "full", "paper_id": "SAMPLE-009"}
-{"event": "reviewers_completed", "mode": "full", "paper_id": "SAMPLE-009"}
-{"event": "findings_resolved", "mode": "full", "paper_id": "SAMPLE-009"}
-{"event": "scores_calibrated", "mode": "full", "paper_id": "SAMPLE-009"}
-{"event": "submission_validated", "mode": "full", "paper_id": "SAMPLE-009"}

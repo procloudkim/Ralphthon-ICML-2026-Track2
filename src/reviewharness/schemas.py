@@ -120,6 +120,15 @@ class InjectionClassification(StrEnum):
     UNCERTAIN_INSTRUCTION = "uncertain_instruction"
 
 
+@unique
+class ScoreSource(StrEnum):
+    """Trusted origin of the proposal used for final score calibration."""
+
+    TRI_LENS = "tri_lens"
+    FULL_CALIBRATOR = "full_calibrator"
+    LOCAL_OFFLINE = "local_offline"
+
+
 class TrustedAssignment(_StrictModel):
     """Trusted control-plane metadata for one assigned paper."""
 
@@ -213,10 +222,18 @@ class ScoreCalibration(_StrictModel):
     """Rubric-calibrated scores and deterministic consistency trace."""
 
     scores: ReviewScores
+    source: ScoreSource
     retained_finding_ids: tuple[NonEmptyStr, ...] = ()
     rejected_finding_ids: tuple[NonEmptyStr, ...] = ()
     rationale: NonEmptyStr
     consistency_guards_passed: StrictBool
+
+
+class CommentInclusionTrace(_StrictModel):
+    """Application-owned identifiers actually rendered into the final comment."""
+
+    included_claim_ids: tuple[NonEmptyStr, ...] = ()
+    included_finding_ids: tuple[NonEmptyStr, ...] = ()
 
 
 class SecurityDetection(_StrictModel):

@@ -23,9 +23,9 @@ from reviewharness.reviewers import (
     ReviewerRunRequest,
     ReviewerRunResult,
     ReviewerSuccess,
+    ScoreCalibratorCandidates,
     TriLensCandidates,
 )
-from reviewharness.schemas import FindingStatus
 
 SPECIALIST_JSON = '{"findings":[],"uncertainty_notes":[]}'
 FAST_JSON = """{
@@ -35,24 +35,25 @@ FAST_JSON = """{
     "statement": "The method improves accuracy.",
     "importance": "central",
     "claim_type": "empirical",
-    "reported_evidence": [{"page": 1, "locator": "Table 1"}]
+    "reported_evidence": [{
+      "page": 1,
+      "block_id": "p1-b1",
+      "quote": "The method improves accuracy."
+    }]
   }],
   "strengths": ["The comparison uses a stated baseline."],
   "findings": [{
     "finding_id": "F1",
-    "reviewer": "paper-controlled-role",
     "category": "reproducibility",
     "judgment_type": "objective",
     "severity": "major",
-    "status": "minority_supported",
     "statement": "Variance is not reported.",
     "target_claim_id": "C1",
     "evidence": [{
       "page": 1,
-      "locator": "Table 1",
-      "summary": "Only point estimates are shown."
+      "block_id": "p1-b2",
+      "quote": "Only point estimates are shown."
     }],
-    "central_claim_impact": "direct",
     "decision_relevance": "high",
     "recommended_check": "Report results across seeds.",
     "confidence": 0.9
@@ -72,6 +73,22 @@ FAST_JSON = """{
   },
   "uncertainty_notes": ["External novelty was not checked."]
 }"""
+CALIBRATOR_JSON = """{
+  "score_proposal": {
+    "reviewer": "paper-controlled-calibrator",
+    "scores": {
+      "soundness": 3,
+      "presentation": 3,
+      "significance": 3,
+      "originality": 3,
+      "overall_recommendation": 4,
+      "confidence": 3
+    },
+    "rationale": "The canonical record supports a borderline positive score.",
+    "finding_ids": []
+  },
+  "uncertainty_notes": ["External novelty was not checked."]
+}"""
 
 
 def _evidence() -> SanitizedPaperEvidence:
@@ -87,6 +104,7 @@ def _prompts() -> ReviewerPrompts:
         evidence="evidence-only prompt",
         impact="impact-only prompt",
         tri_lens="tri-lens prompt",
+        score_calibrator="score-calibrator prompt",
     )
 
 
@@ -104,6 +122,16 @@ async def _run(
     limit: int,
 ) -> ReviewerRunResult:
     return await orchestrator.run(_request(mode), anyio.CapacityLimiter(limit))
+
+
+async def _calibrate(orchestrator: ReviewerOrchestrator) -> object:
+    return await orchestrator.calibrate(
+        "b" * 64,
+        (),
+        (),
+        "Trusted ICML rubric",
+        anyio.CapacityLimiter(1),
+    )
 
 
 def test_full_mode_runs_three_isolated_specialists_with_shared_capacity_bound() -> None:
@@ -144,7 +172,7 @@ def test_full_mode_runs_three_isolated_specialists_with_shared_capacity_bound() 
     )
 
 
-def test_fast_mode_parses_typed_candidates_and_overwrites_reviewer_authority() -> None:
+def test_fast_mode_parses_typed_candidates_and_overwrites_score_authority() -> None:
     # Given
     provider = ScriptedReviewerProvider(
         (ScriptedSuccess(ReviewerResponse(raw_output=FAST_JSON)),),
@@ -161,12 +189,55 @@ def test_fast_mode_parses_typed_candidates_and_overwrites_reviewer_authority() -
     output = outcome.output
     assert isinstance(output, TriLensCandidates)
     assert output.claims[0].claim_id == "C1"
-    assert output.findings[0].reviewer == ReviewerLens.TRI_LENS.value
-    assert output.findings[0].status is FindingStatus.CANDIDATE
     assert output.score_proposal is not None
     assert output.score_proposal.reviewer == ReviewerLens.TRI_LENS.value
     assert output.score_proposal.scores.soundness == 2
     assert '"paper_id"' not in provider.requests[0].output_schema.json_schema
+    assert '"reviewer"' not in output.findings[0].model_dump_json()
+    assert '"status"' not in output.findings[0].model_dump_json()
+
+
+def test_fast_mode_rejects_null_score_provenance() -> None:
+    # Given: a structurally complete fast response without a score proposal.
+    raw_output = (
+        TriLensCandidates.model_validate_json(FAST_JSON)
+        .model_copy(update={"score_proposal": None})
+        .model_dump_json()
+    )
+    provider = ScriptedReviewerProvider(
+        (ScriptedSuccess(ReviewerResponse(raw_output=raw_output)),),
+    )
+    orchestrator = ReviewerOrchestrator(provider, _prompts())
+
+    # When: strict fast-mode parsing reaches the provider boundary.
+    result = anyio.run(_run, orchestrator, ReviewMode.FAST, 1)
+
+    # Then: missing scientific score provenance is a malformed response.
+    outcome = result.outcomes[0]
+    assert isinstance(outcome, ReviewerFailure)
+    assert outcome.kind is ReviewerFailureKind.SCORE_PROVENANCE
+
+
+def test_full_calibrator_uses_canonical_payload_and_overwrites_authority() -> None:
+    # Given: one dedicated calibrator response with an untrusted role label.
+    provider = ScriptedReviewerProvider(
+        (ScriptedSuccess(ReviewerResponse(raw_output=CALIBRATOR_JSON)),),
+    )
+    orchestrator = ReviewerOrchestrator(provider, _prompts())
+
+    # When: the score-only call runs after specialist evidence resolution.
+    raw_outcome = anyio.run(_calibrate, orchestrator)
+
+    # Then: only canonical structures cross the call and trusted source wins.
+    assert isinstance(raw_outcome, ReviewerSuccess)
+    assert isinstance(raw_outcome.output, ScoreCalibratorCandidates)
+    assert raw_outcome.output.score_proposal.reviewer == "full_calibrator"
+    request = provider.requests[0]
+    assert request.output_schema.name == "score_calibration"
+    assert request.sanitized_evidence.security_notes == (
+        "canonical_claims_and_findings_only",
+    )
+    assert request.sanitized_evidence.pages[0].text == '{"claims":[],"findings":[]}'
 
 
 def test_full_mode_preserves_successful_sibling_when_other_roles_fail() -> None:

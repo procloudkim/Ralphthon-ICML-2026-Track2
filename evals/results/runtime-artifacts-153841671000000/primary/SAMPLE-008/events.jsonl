@@ -1,8 +1,0 @@
-{"event": "assignment_validated", "mode": "fast", "paper_id": "SAMPLE-008"}
-{"event": "pdf_ingested", "mode": "fast", "paper_id": "SAMPLE-008"}
-{"event": "evidence_sanitized", "mode": "fast", "paper_id": "SAMPLE-008"}
-{"event": "claims_built", "mode": "fast", "paper_id": "SAMPLE-008"}
-{"event": "reviewers_completed", "mode": "fast", "paper_id": "SAMPLE-008"}
-{"event": "findings_resolved", "mode": "fast", "paper_id": "SAMPLE-008"}
-{"event": "scores_calibrated", "mode": "fast", "paper_id": "SAMPLE-008"}
-{"event": "submission_validated", "mode": "fast", "paper_id": "SAMPLE-008"}

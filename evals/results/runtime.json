@@ -1,9 +1,10 @@
 {
   "paper_count": 10,
+  "distinct_pdf_count": 10,
   "valid_completion_count": 10,
-  "total_seconds": 0.4539999999979045,
-  "p50_seconds": 0.180000000007567,
-  "p95_seconds": 0.28099999998812564,
+  "total_seconds": 0.5,
+  "p50_seconds": 0.20300000003771856,
+  "p95_seconds": 0.25,
   "timeout_count": 0,
   "retry_count": 0,
   "fast_mode_fallback_count": 0,
@@ -11,5 +12,9 @@
   "failure_isolation_passed": true,
   "full_mode_executed": true,
   "fast_mode_executed": true,
-  "monotonic_deadline": true
+  "monotonic_deadline": true,
+  "evaluation_scope": "local_synthetic_hash_distinct_pdf_batch",
+  "provider_scope": "local_heuristic_no_network",
+  "real_provider_ten_paper_runtime_status": "unverified",
+  "real_provider_ten_paper_runtime_seconds": null
 }

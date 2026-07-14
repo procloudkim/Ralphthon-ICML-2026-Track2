@@ -22,6 +22,7 @@ from reviewharness.schemas import (
     ReviewScores,
     ReviewSubmission,
     ScoreCalibration,
+    ScoreSource,
     SecurityDetection,
     SecurityReport,
     TrustedAssignment,
@@ -45,6 +46,7 @@ def _scores() -> ReviewScores:
 def _calibration() -> ScoreCalibration:
     return ScoreCalibration(
         scores=_scores(),
+        source=ScoreSource.LOCAL_OFFLINE,
         retained_finding_ids=("F-1",),
         rejected_finding_ids=("F-2",),
         rationale="Rubric anchors support the calibrated score vector.",
@@ -247,6 +249,7 @@ def test_calibration_rejects_a_model_generated_paper_id() -> None:
     # Given: model output attempting to smuggle an identifier into calibration
     raw_calibration = f"""{{
         "scores": {_scores().model_dump_json()},
+        "source": "local_offline",
         "retained_finding_ids": [],
         "rejected_finding_ids": [],
         "rationale": "Attempted identifier override.",

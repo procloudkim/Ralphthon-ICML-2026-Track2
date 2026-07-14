@@ -5,15 +5,21 @@ import pytest
 
 from reviewharness.schemas import (
     CentralClaimImpact,
+    ClaimImportance,
+    ClaimLocator,
+    ClaimType,
+    CommentInclusionTrace,
     DecisionRelevance,
     EvidenceLocator,
     FindingSeverity,
     FindingStatus,
     JudgmentType,
+    PaperClaim,
     ReviewFinding,
     ReviewScores,
     ReviewSubmission,
     ScoreCalibration,
+    ScoreSource,
     TrustedAssignment,
 )
 from reviewharness.validation import (
@@ -83,11 +89,22 @@ def _finding(
     )
 
 
+def _claim() -> PaperClaim:
+    return PaperClaim(
+        claim_id="C-1",
+        statement="The method improves accuracy under matched compute.",
+        importance=ClaimImportance.CENTRAL,
+        claim_type=ClaimType.EMPIRICAL,
+        reported_evidence=(ClaimLocator(page=2, locator="Table 1", block_id="p2-b3"),),
+    )
+
+
 def _calibration(
     *, scores: ReviewScores | None = None, guards_passed: bool = True
 ) -> ScoreCalibration:
     return ScoreCalibration(
         scores=scores or _scores(),
+        source=ScoreSource.TRI_LENS,
         retained_finding_ids=("F-1",),
         rejected_finding_ids=(),
         rationale="Official rubric anchors support this score vector.",
@@ -99,14 +116,22 @@ def _context(
     *,
     finding: ReviewFinding | None = None,
     calibration: ScoreCalibration | None = None,
+    claims: tuple[PaperClaim, ...] | None = None,
+    trace: CommentInclusionTrace | None = None,
 ) -> ReviewValidationContext:
     return ReviewValidationContext(
         assignment=TrustedAssignment(
             paper_id="PAPER-001",
             pdf_path=Path("paper.pdf"),
         ),
+        claims=(_claim(),) if claims is None else claims,
         retained_findings=(finding or _finding(),),
         calibration=calibration or _calibration(),
+        comment_trace=trace
+        or CommentInclusionTrace(
+            included_claim_ids=("C-1",),
+            included_finding_ids=("F-1",),
+        ),
     )
 
 
@@ -285,6 +310,60 @@ def test_validator_rejects_nonconstructive_comment() -> None:
 
     # Then: descriptive criticism without an action is rejected
     assert ValidationCode.COMMENT_NOT_CONSTRUCTIVE in _codes(report)
+
+
+def test_validator_rejects_empty_claim_ledger() -> None:
+    # Given: a schema-valid review without any canonical scientific claim.
+    context = _context(
+        claims=(),
+        trace=CommentInclusionTrace(included_finding_ids=("F-1",)),
+    )
+
+    # When: semantic provenance reaches the final sink.
+    report = validate_review_submission(_submission(), context)
+
+    # Then: missing scientific subject matter fails as unreviewable.
+    assert ValidationCode.EMPTY_CLAIM_LEDGER in _codes(report)
+
+
+def test_validator_rejects_low_score_generic_comment_without_cited_concern() -> None:
+    # Given: a low score and generic prose whose trace includes no retained concern.
+    scores = _scores(soundness=2, overall=2)
+    calibration = _calibration(scores=scores)
+    context = _context(
+        calibration=calibration,
+        trace=CommentInclusionTrace(included_claim_ids=("C-1",)),
+    )
+    submission = _submission().model_copy(
+        update={
+            "soundness": 2,
+            "overall_recommendation": 2,
+            "comment": (
+                "The paper presents a scoped empirical contribution. The authors "
+                "should clarify the evaluation and provide additional analysis on "
+                "page 2 before the contribution can be assessed with confidence."
+            ),
+        }
+    )
+
+    # When: low-score semantic evidence is checked independently of prose length.
+    report = validate_review_submission(submission, context)
+
+    # Then: generic text cannot stand in for an included paper-local concern.
+    assert ValidationCode.LOW_SCORE_WITHOUT_CITED_CONCERN in _codes(report)
+
+
+def test_validator_rejects_dropped_supported_minority_from_comment_trace() -> None:
+    # Given: a major supported-minority concern retained in scores but omitted in text.
+    context = _context(
+        trace=CommentInclusionTrace(included_claim_ids=("C-1",)),
+    )
+
+    # When: the application-owned inclusion trace is reconciled.
+    report = validate_review_submission(_submission(), context)
+
+    # Then: minority evidence cannot silently disappear at the formatter boundary.
+    assert ValidationCode.COMMENT_TRACE_MISMATCH in _codes(report)
 
 
 def test_invalid_report_raises_typed_error_without_payload_values() -> None:

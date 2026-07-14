@@ -17,6 +17,7 @@ from reviewharness.schemas import (
     ReviewScores,
     ScoreCalibration,
     ScoreProposal,
+    ScoreSource,
 )
 
 type UnitFloat = Annotated[StrictFloat, Field(ge=0.0, le=1.0)]
@@ -80,6 +81,7 @@ class CalibrationContext(BaseModel):
     )
 
     proposal: ScoreProposal
+    source: ScoreSource
     findings: tuple[ReviewFinding, ...]
     parser_confidence: UnitFloat = 1.0
     reviewer_disagreement: UnitFloat = 0.0
@@ -266,6 +268,7 @@ def calibrate_scores(
     reasons = (f"Used one proposal from {proposal.reviewer}; no averaging.",)
     return ScoreCalibration(
         scores=calibrated,
+        source=context.source,
         retained_finding_ids=tuple(finding.finding_id for finding in retained),
         rejected_finding_ids=tuple(finding.finding_id for finding in rejected),
         rationale=" ".join(reasons + finding_reasons + anchor_reasons),

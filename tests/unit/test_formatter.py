@@ -13,6 +13,7 @@ from reviewharness.schemas import (
     ReviewFinding,
     ReviewScores,
     ScoreCalibration,
+    ScoreSource,
 )
 
 
@@ -30,6 +31,7 @@ def _scores() -> ReviewScores:
 def _calibration(retained_ids: tuple[str, ...]) -> ScoreCalibration:
     return ScoreCalibration(
         scores=_scores(),
+        source=ScoreSource.LOCAL_OFFLINE,
         retained_finding_ids=retained_ids,
         rationale="Official anchors and retained evidence support these scores.",
         consistency_guards_passed=True,
@@ -82,7 +84,8 @@ def test_comment_is_claim_grounded_actionable_and_score_consistent() -> None:
     finding = _supported_finding()
 
     # When: the final constructive review is built
-    comment = build_review_comment((claim,), (finding,), _calibration(("F1",)))
+    formatted = build_review_comment((claim,), (finding,), _calibration(("F1",)))
+    comment = formatted.comment
 
     # Then: the review grounds its summary, concern, action, and scores
     assert "bounded estimator improves prediction" in comment
@@ -91,6 +94,8 @@ def test_comment_is_claim_grounded_actionable_and_score_consistent() -> None:
     assert "Report seed-level variability" in comment
     assert "overall recommendation of 3/6" in comment
     assert 250 <= len(comment.split()) <= 450
+    assert formatted.trace.included_claim_ids == ("C1",)
+    assert formatted.trace.included_finding_ids == ("F1",)
 
 
 def test_comment_preserves_supported_minority_and_rejects_unsupported_claim() -> None:
@@ -116,7 +121,7 @@ def test_comment_preserves_supported_minority_and_rejects_unsupported_claim() ->
         (_central_claim(),),
         (unsupported, minority),
         _calibration(("F-unsupported", "F-minority")),
-    )
+    ).comment
 
     # Then: evidence-backed minority criticism survives and unsupported text does not
     assert "minority-supported" in comment
@@ -143,7 +148,7 @@ def test_comment_limits_concerns_to_three_by_priority() -> None:
         (_central_claim(),),
         findings,
         _calibration(retained_ids),
-    )
+    ).comment
 
     # Then: only the three highest-priority findings are published
     assert comment.count("Concern ") == 3
@@ -170,8 +175,8 @@ def test_sparse_or_suspicious_evidence_gets_a_safe_constructive_fallback() -> No
     )
 
     # When: the comment is built twice from the same typed input
-    first = build_review_comment((), (suspicious,), _calibration(("F1",)))
-    second = build_review_comment((), (suspicious,), _calibration(("F1",)))
+    first = build_review_comment((), (suspicious,), _calibration(("F1",))).comment
+    second = build_review_comment((), (suspicious,), _calibration(("F1",))).comment
 
     # Then: the fallback is deterministic, actionable, and free of raw controls
     assert first == second

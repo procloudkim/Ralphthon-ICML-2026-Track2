@@ -1,0 +1,10 @@
+{
+  "comment": "Summary. The paper's main claim is that A budget-aware classifier improves mean accuracy over a matched linear baseline on two public datasets. The paper points to page 1, section Abstract, p1-b2 as reported support; this is paper-local evidence, not independent verification. The assessment stays within extracted claims and cited evidence rather than inferring external novelty or unreported results.\n\nStrengths. A concrete strength is that the main assertion is specific enough to inspect: A budget-aware classifier improves mean accuracy over a matched linear baseline on two public datasets. The paper identifies page 1, section Abstract, p1-b2, improving traceability between its assertion and reported support.\n\nConcern 1 (minority-supported; major severity; page 1, section Limitations, p1-b4): The central comparison does not establish stability across runs. The cited passage reports that uses one fixed seed and reports no variance. This has direct impact on the target claim and high decision relevance. Recommended author check: Report repeated-seed variability for the matched comparison.\n\nScore calibration. Retained evidence leads to soundness 2/4, presentation 3/4, significance 3/4, originality 3/4, and an overall recommendation of 2/6. Confidence is 4/5 and denotes certainty in this assessment, not paper quality. The deterministic score-comment consistency guards passed; the recommendation uses retained evidence rather than averaged reviewer scores.\n\nScope and next step. This comment does not infer novelty against unchecked external literature or treat missing extraction as adverse evidence. Address the numbered checks with precise page-local support; if support is unavailable, state that limitation so confidence and the recommendation can be recalibrated against the same official anchors. Revisit the result if an author response or fuller extraction changes the paper-local evidence available for assessment.",
+  "confidence": 4,
+  "originality": 3,
+  "overall_recommendation": 2,
+  "paper_id": "QUALITY-CONFORMANCE",
+  "presentation": 3,
+  "significance": 3,
+  "soundness": 2
+}

@@ -4,52 +4,52 @@
   "assignments": [
     {
       "paper_id": "SAMPLE-001",
-      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "pdf_path": "tests/fixtures/batch/papers/runtime-01.pdf",
       "requested_mode": "full"
     },
     {
       "paper_id": "SAMPLE-002",
-      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "pdf_path": "tests/fixtures/batch/papers/runtime-02.pdf",
       "requested_mode": "fast"
     },
     {
       "paper_id": "SAMPLE-003",
-      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "pdf_path": "tests/fixtures/batch/papers/runtime-03.pdf",
       "requested_mode": "full"
     },
     {
       "paper_id": "SAMPLE-004",
-      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "pdf_path": "tests/fixtures/batch/papers/runtime-04.pdf",
       "requested_mode": "fast"
     },
     {
       "paper_id": "SAMPLE-005",
-      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "pdf_path": "tests/fixtures/batch/papers/runtime-05.pdf",
       "requested_mode": "full"
     },
     {
       "paper_id": "SAMPLE-006",
-      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "pdf_path": "tests/fixtures/batch/papers/runtime-06.pdf",
       "requested_mode": "fast"
     },
     {
       "paper_id": "SAMPLE-007",
-      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "pdf_path": "tests/fixtures/batch/papers/runtime-07.pdf",
       "requested_mode": "full"
     },
     {
       "paper_id": "SAMPLE-008",
-      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "pdf_path": "tests/fixtures/batch/papers/runtime-08.pdf",
       "requested_mode": "fast"
     },
     {
       "paper_id": "SAMPLE-009",
-      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "pdf_path": "tests/fixtures/batch/papers/runtime-09.pdf",
       "requested_mode": "full"
     },
     {
       "paper_id": "SAMPLE-010",
-      "pdf_path": "tests/fixtures/clean/sample.pdf",
+      "pdf_path": "tests/fixtures/batch/papers/runtime-10.pdf",
       "requested_mode": "fast"
     }
   ]

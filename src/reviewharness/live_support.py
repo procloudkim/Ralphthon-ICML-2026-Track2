@@ -43,7 +43,6 @@ class LiveReviewMode(StrEnum):
     """Actual reasoning path retained in terminal completion records."""
 
     CODEX_EXEC = "codex_exec"
-    HEURISTIC_FALLBACK = "heuristic_fallback"
 
 
 class LivePaperStatus(StrEnum):
@@ -51,6 +50,20 @@ class LivePaperStatus(StrEnum):
 
     SUBMITTED = "submitted"
     FAILED = "failed"
+
+
+class LiveFailureKind(StrEnum):
+    """Sanitized terminal failure category for one isolated live paper."""
+
+    PROVIDER = "provider_failure"
+    EVIDENCE_CONTRACT = "evidence_contract_failure"
+    SCORE_PROVENANCE = "score_provenance_failure"
+    SEMANTIC_VALIDATION = "semantic_validation_failure"
+    DEADLINE = "deadline_failure"
+    DOWNLOAD = "download_failure"
+    SUBMISSION = "submission_failure"
+    COMPLETION_RECORD = "completion_record_failure"
+    UNEXPECTED = "unexpected_failure"
 
 
 @final
@@ -85,7 +98,7 @@ class LivePaperResult:
     receipt_verified: bool
     elapsed_seconds: float
     retries: int
-    failure: str | None
+    failure: LiveFailureKind | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,7 +177,7 @@ def success_result(
 
 def failure_result(
     context: LiveResultContext,
-    failure: str,
+    failure: LiveFailureKind,
 ) -> LivePaperResult:
     """Create one isolated terminal failure without untrusted error text."""
     return LivePaperResult(
@@ -184,7 +197,7 @@ def completion_payload(result: LivePaperResult) -> dict[str, JsonValue]:
     """Serialize the safe terminal fields persisted for production recovery."""
     return {
         "elapsed_seconds": result.elapsed_seconds,
-        "failure": result.failure,
+        "failure": None if result.failure is None else result.failure.value,
         "receipt_verified": result.receipt_verified,
         "retries": result.retries,
         "review_mode": result.review_mode.value,

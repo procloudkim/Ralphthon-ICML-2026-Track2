@@ -9,6 +9,7 @@ ROLE_PROMPTS = (
     "evidence_reviewer.md",
     "impact_reviewer.md",
     "tri_lens_reviewer.md",
+    "score_calibrator.md",
     "adjudicator.md",
     "score_comment_calibrator.md",
 )
@@ -68,7 +69,7 @@ def test_role_prompts_enforce_scientific_evidence_policy() -> None:
         assert "critical or major factual concern" in prompt
         assert "paper-local evidence" in prompt
         assert "page" in prompt
-        assert "locator" in prompt
+        assert "block_id" in prompt or "locator" in prompt
         assert "supported minority finding" in prompt
         assert "unsupported" in prompt
         assert "external novelty" in prompt
@@ -116,6 +117,11 @@ def test_role_specific_review_contracts_cover_the_pipeline() -> None:
             "do not average",
             "consistency guards",
             "250-450 words",
+        ),
+        "score_calibrator.md": (
+            "do not average",
+            "rubric-anchored rationale",
+            "confidence measures confidence in this assessment",
         ),
     }
 

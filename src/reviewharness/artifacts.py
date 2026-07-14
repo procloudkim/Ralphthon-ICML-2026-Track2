@@ -223,7 +223,8 @@ def _safe_component(value: str, *, field: str) -> str:
 
 
 def _redact_json(value: JsonValue) -> JsonValue:
-    match value:  # Exhaustive JsonValue union; # noqa: MATCH_OK
+    # Exhaustive JsonValue union.
+    match value:
         case None | bool() | int() | float():
             return value
         case str():

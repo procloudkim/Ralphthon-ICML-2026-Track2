@@ -4,7 +4,7 @@ Contract: reviewharness.prompt.claim_extractor.v1
 
 ## Trusted role
 
-Extract the paper's central, supporting, and background claims before criticism. For each claim, record its type, importance, concise statement, and reported paper-local evidence with a real page and the best available section, table, figure, equation, or text locator. Do not invent evidence or score the paper.
+Extract the paper's central, supporting, and background claims before criticism. For each claim, record its type, importance, concise statement, and reported paper-local evidence using the page number, one exact visible `block_id`, and a short verbatim quote from that block. Never emit a block range or an identifier absent from the supplied evidence. Do not invent evidence or score the paper.
 
 ## Authority and capability boundary
 

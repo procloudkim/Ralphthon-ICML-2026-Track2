@@ -26,6 +26,8 @@ TOP: Final = 748.0
 BOTTOM: Final = 48.0
 BODY_FONT: Final = 8.4
 LINE_HEIGHT: Final = 10.8
+ARCHITECTURE_PAGE: Final = 2
+RESULTS_PAGE: Final = 3
 TITLE: Final = (
     "ReviewHarness: Injection-Resilient Evidence-Weighted Review "
     "under Hidden Human Evaluation"
@@ -72,12 +74,16 @@ class _PdfCanvas(Protocol):
     def save(self) -> None: ...
 
 
-def _percent(value: float) -> str:
-    return f"{value:.1%}"
+def _percent(value: float | None) -> str:
+    return "N/A" if value is None else f"{value:.1%}"
 
 
-def _whole_percent(value: float) -> str:
-    return f"{value:.0%}"
+def _whole_percent(value: float | None) -> str:
+    return "N/A" if value is None else f"{value:.0%}"
+
+
+def _pass_count(value: float | None, total: int) -> str:
+    return "N/A" if value is None else f"{round(total * value)}/{total}"
 
 
 def _joined(parts: tuple[str, ...]) -> str:
@@ -99,7 +105,7 @@ def _make_pages(metrics: ReportMetrics) -> tuple[_ReportPage, ...]:
                     f"was {_percent(security.attack_success_rate)}, ",
                     "marker leakage was ",
                     f"{_percent(security.marker_leakage_rate)}, and unauthorized tool ",
-                    f"calls were {security.unauthorized_tool_calls}.",
+                    "calls were unmeasured (no instrumented runner).",
                 )
             ),
             _joined(
@@ -121,7 +127,8 @@ def _make_pages(metrics: ReportMetrics) -> tuple[_ReportPage, ...]:
                     "clean-versus-injected ",
                     "issue overlap was ",
                     f"{_percent(security.clean_injected_issue_overlap)}. Scope: ",
-                    f"{security.evaluation_scope}.",
+                    f"{security.evaluation_scope}; provider: ",
+                    f"{security.provider_scope}.",
                 )
             ),
         ),
@@ -154,7 +161,9 @@ def _make_pages(metrics: ReportMetrics) -> tuple[_ReportPage, ...]:
                     "top-issue ",
                     f"stability was {_percent(quality.top_issue_stability_rate)}, and ",
                     f"evaluation duration was {quality.duration_seconds:.3f} seconds. ",
-                    f"The quality gate {'passed' if quality.passed else 'failed'}.",
+                    "Public provider-replay conformance ",
+                    ("passed; " if quality.provider_conformance_passed else "failed; "),
+                    f"the quality gate {'passed' if quality.passed else 'failed'}.",
                 )
             ),
             _joined(
@@ -173,7 +182,7 @@ def _make_pages(metrics: ReportMetrics) -> tuple[_ReportPage, ...]:
                     "Under the deterministic local fixture and provider used for ",
                     "reliability testing, the batch produced ",
                     f"{runtime.valid_completion_count} valid ",
-                    f"completions from {runtime.paper_count} papers in ",
+                    f"completions from {runtime.paper_count} hash-distinct papers in ",
                     f"{runtime.total_seconds:.3f} seconds; this measurement excludes ",
                     "hosted-model inference and network latency. Per-paper p50 was ",
                     f"{runtime.p50_seconds:.3f} seconds and p95 was ",
@@ -198,6 +207,13 @@ def _make_pages(metrics: ReportMetrics) -> tuple[_ReportPage, ...]:
                     f"{'passed' if runtime.fast_mode_executed else 'failed'}; ",
                     "monotonic deadline control ",
                     f"{'passed' if runtime.monotonic_deadline else 'failed'}.",
+                )
+            ),
+            _joined(
+                (
+                    "Real-provider ten-paper runtime remains unverified; the separate ",
+                    "provider smoke does not support extrapolation to this batch. ",
+                    f"Scope: {runtime.evaluation_scope}.",
                 )
             ),
         ),
@@ -263,12 +279,17 @@ def _draw_architecture_diagram(pdf: _PdfCanvas, y: float) -> float:
     pdf.drawString(
         LEFT,
         y,
-        "Agreement informs confidence; verified evidence and central-claim impact determine priority.",
+        _joined(
+            (
+                "Agreement informs confidence; verified evidence and central-claim ",
+                "impact determine priority.",
+            )
+        ),
     )
     return y - 18.0
 
 
-def _draw_table_cell(
+def _draw_table_cell(  # noqa: PLR0913
     pdf: _PdfCanvas,
     text: str,
     x: float,
@@ -294,17 +315,21 @@ def _draw_results_table(pdf: _PdfCanvas, metrics: ReportMetrics, y: float) -> fl
     security = metrics.security
     quality = metrics.quality
     runtime = metrics.runtime
-    security_passes = round(
-        security.evaluated_cases * security.valid_completion_rate
+    security_passes = _pass_count(
+        security.valid_completion_rate,
+        security.evaluated_cases,
     )
-    quality_passes = round(quality.evaluated_cases * quality.valid_completion_rate)
+    quality_passes = _pass_count(
+        quality.valid_completion_rate,
+        quality.evaluated_cases,
+    )
     marker_leaks = round(security.evaluated_cases * security.marker_leakage_rate)
     rows = (
         (
             "Security",
             _joined(
                 (
-                    f"{security_passes}/{security.evaluated_cases} pass; attack ",
+                    f"{security_passes} pass; attack ",
                     f"success {_whole_percent(security.attack_success_rate)}; ",
                     f"marker leakage {marker_leaks}.",
                 )
@@ -315,7 +340,7 @@ def _draw_results_table(pdf: _PdfCanvas, metrics: ReportMetrics, y: float) -> fl
             "Quality",
             _joined(
                 (
-                    f"{quality_passes}/{quality.evaluated_cases} pass; evidence ",
+                    f"{quality_passes} pass; evidence ",
                     f"coverage {_whole_percent(quality.evidence_coverage)}; ",
                     "unsupported critique ",
                     f"{_whole_percent(quality.unsupported_critique_rate)}.",
@@ -331,7 +356,12 @@ def _draw_results_table(pdf: _PdfCanvas, metrics: ReportMetrics, y: float) -> fl
                     f"{runtime.total_seconds:.3f} seconds.",
                 )
             ),
-            "Local synthetic provider; excludes hosted-model inference and network latency.",
+            _joined(
+                (
+                    "Local synthetic provider; excludes hosted-model inference ",
+                    "and network latency.",
+                )
+            ),
         ),
     )
     pdf.setFont("Helvetica-Bold", 10.0)
@@ -352,7 +382,11 @@ def _draw_results_table(pdf: _PdfCanvas, metrics: ReportMetrics, y: float) -> fl
         row_y = y - header_height - row_height * row_index
         pdf.line(LEFT, row_y, RIGHT, row_y)
     header_x = LEFT
-    for header, column_width in zip(("Lens", "Measured result", "Scope"), column_widths, strict=True):
+    for header, column_width in zip(
+        ("Lens", "Measured result", "Scope"),
+        column_widths,
+        strict=True,
+    ):
         _draw_table_cell(pdf, header, header_x, y, column_width, bold=True)
         header_x += column_width
     row_top = y - header_height
@@ -402,9 +436,9 @@ def _draw_page(
         for paragraph in section.paragraphs:
             y = _draw_paragraph(pdf, paragraph, y)
         y -= 6.0
-    if page_number == 2:
+    if page_number == ARCHITECTURE_PAGE:
         y = _draw_architecture_diagram(pdf, y)
-    if page_number == 3:
+    if page_number == RESULTS_PAGE:
         y = _draw_results_table(pdf, metrics, y)
     if y < BOTTOM:
         raise _ReportLayoutError(page_heading=page.heading)

@@ -1,9 +1,0 @@
-{
-  "artifact_path": "normalized_findings.json",
-  "media_type": "application/json",
-  "paper_id": "SAMPLE-002",
-  "schema_version": 1,
-  "sha256": "51ed6669745b3a10c175f17144468bc592e4d0497253ed4ea4f023b1d41c16fc",
-  "size_bytes": 780,
-  "stage": "normalized_findings"
-}

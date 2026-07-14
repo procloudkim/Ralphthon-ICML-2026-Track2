@@ -51,6 +51,8 @@ report/*.synctex.gz
 tools/
 tmp/
 evals/results/runtime-artifacts-*/
+evals/results/quality-conformance/**/assignment.json
+evals/results/quality-conformance/**/*.manifest.json
 \[중요\]대회주요정보.txt
 submission/submission_manifest.json
 

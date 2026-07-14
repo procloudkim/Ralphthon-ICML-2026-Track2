@@ -1,0 +1,26 @@
+[
+  {
+    "category": "statistical_reporting",
+    "central_claim_impact": "direct",
+    "confidence": 0.67875,
+    "decision_relevance": "high",
+    "evidence": [
+      {
+        "block_id": "p1-b4",
+        "locator": "p1-b4",
+        "page": 1,
+        "section": "Limitations",
+        "summary": "uses one fixed seed and reports no variance"
+      }
+    ],
+    "finding_id": "F1",
+    "judgment_type": "mixed",
+    "priority": 0.96,
+    "recommended_check": "Report repeated-seed variability for the matched comparison.",
+    "reviewer": "tri_lens",
+    "severity": "major",
+    "statement": "The central comparison does not establish stability across runs.",
+    "status": "minority_supported",
+    "target_claim_id": "C-F78F62C94091"
+  }
+]

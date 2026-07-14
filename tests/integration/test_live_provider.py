@@ -16,6 +16,7 @@ from reviewharness.kernel import ReviewKernel, ReviewKernelPolicy
 from reviewharness.live_support import LiveProvider
 from reviewharness.providers import (
     OutputSchemaDeclaration,
+    ProviderCallError,
     ReviewerRequest,
     SanitizedEvidencePage,
     SanitizedPaperEvidence,
@@ -37,7 +38,26 @@ def _tri_lens_json() -> str:
             "summary": (
                 "The paper evaluates a compact classifier on controlled datasets."
             ),
-            "claims": [],
+            "claims": [
+                {
+                    "claim_id": "C1",
+                    "statement": (
+                        "The paper evaluates a compact classifier on two public "
+                        "datasets."
+                    ),
+                    "importance": "central",
+                    "claim_type": "empirical",
+                    "reported_evidence": [
+                        {
+                            "page": 1,
+                            "block_id": "p1-b2",
+                            "quote": (
+                                "evaluate a compact classifier on two public datasets"
+                            ),
+                        }
+                    ],
+                }
+            ],
             "strengths": ["The empirical objective is clearly stated."],
             "score_proposal": {
                 "reviewer": "codex_exec_tri_lens",
@@ -66,7 +86,7 @@ def _request() -> ReviewerRequest:
                 SanitizedEvidencePage(
                     page_number=1,
                     text=(
-                        "[p1-b1-l0] The paper evaluates a compact classifier "
+                        "[p1-b1] The paper evaluates a compact classifier "
                         "on two controlled datasets."
                     ),
                 ),
@@ -165,6 +185,24 @@ def test_codex_provider_uses_isolated_argument_array_contract() -> None:
     assert runner.call_count == 1
 
 
+def test_codex_provider_rejects_unknown_schema_before_process_start() -> None:
+    # Given: an orchestration request outside the closed reviewer schema set.
+    runner = _RecordingRunner()
+    request = _request().model_copy(
+        update={
+            "output_schema": OutputSchemaDeclaration(
+                name="paper_controlled_schema",
+                json_schema="{}",
+            )
+        }
+    )
+
+    # When / Then: the provider fails before spawning Codex.
+    with pytest.raises(ProviderCallError, match="unknown schema"):
+        _ = anyio.run(CodexExecReviewerProvider(runner=runner).review, request)
+    assert runner.call_count == 0
+
+
 def test_live_mode_rejects_heuristic_only_configuration() -> None:
     # Given / When
     result = CliRunner().invoke(
@@ -251,10 +289,25 @@ def test_two_paper_codex_smoke_is_concurrent_without_submission(
     os.getenv("RUN_CODEX_EXEC_SMOKE") != "1",
     reason="real Codex smoke is opt-in",
 )
-def test_real_codex_exec_provider_smoke() -> None:
-    # Given / When
-    response = anyio.run(CodexExecReviewerProvider().review, _request())
+def test_real_two_paper_codex_exec_provider_smoke() -> None:
+    # Given / When: two provider calls prove only this opt-in smoke lane.
+    async def scenario() -> tuple[str, ...]:
+        provider = CodexExecReviewerProvider()
+        responses: list[str] = []
+
+        async def review() -> None:
+            responses.append((await provider.review(_request())).raw_output)
+
+        async with anyio.create_task_group() as task_group:
+            _ = task_group.start_soon(review)
+            _ = task_group.start_soon(review)
+        return tuple(responses)
+
+    raw_outputs = anyio.run(scenario)
 
     # Then
-    parsed = TriLensCandidates.model_validate_json(response.raw_output)
-    assert parsed.summary
+    assert len(raw_outputs) == 2
+    assert all(
+        TriLensCandidates.model_validate_json(raw_output).summary
+        for raw_output in raw_outputs
+    )

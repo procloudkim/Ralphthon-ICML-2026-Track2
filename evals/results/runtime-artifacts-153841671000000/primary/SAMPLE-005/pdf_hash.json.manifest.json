@@ -1,9 +1,0 @@
-{
-  "artifact_path": "pdf_hash.json",
-  "media_type": "application/json",
-  "paper_id": "SAMPLE-005",
-  "schema_version": 1,
-  "sha256": "bee88eb30445ff429e6cb888eaa55ab20034dce1ece971cf7baf25813962f3ee",
-  "size_bytes": 102,
-  "stage": "pdf_hash"
-}

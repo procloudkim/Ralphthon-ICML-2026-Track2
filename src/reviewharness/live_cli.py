@@ -13,7 +13,7 @@ import typer
 from pydantic import HttpUrl, SecretStr, ValidationError
 
 from .api_adapter import ApiAdapterConfig, ApiContractError
-from .live import LiveGuidanceStop, ensure_live_provider, run_live_event
+from .live import LiveGuidanceStopError, ensure_live_provider, run_live_event
 from .live_support import (
     LiveProvider,
     LiveProviderUnavailableError,
@@ -35,14 +35,22 @@ def _fail(code: str) -> Never:
 
 def _guidance_fields(guidance: GuidanceDiagnostic) -> tuple[str, ...]:
     time = guidance.time
+    now = None if time is None else time.now
+    window_opens_at = None if time is None else time.window_opens_at
+    window_closes_at = None if time is None else time.window_closes_at
+    now_text = "unknown" if now is None else now.isoformat()
+    opens_text = "unknown" if window_opens_at is None else window_opens_at.isoformat()
+    closes_text = (
+        "unknown" if window_closes_at is None else window_closes_at.isoformat()
+    )
     return (
         f"stage={guidance.stage or 'unknown'}",
         f"reason_code={guidance.reason_code or 'unknown'}",
         f"next_action={guidance.next_action or 'unknown'}",
         f"action_available={guidance.action_available}",
-        f"server_now={'unknown' if time is None else time.now.isoformat()}",
-        f"window_opens_at={'unknown' if time is None else time.window_opens_at.isoformat()}",
-        f"window_closes_at={'unknown' if time is None else time.window_closes_at.isoformat()}",
+        f"server_now={now_text}",
+        f"window_opens_at={opens_text}",
+        f"window_closes_at={closes_text}",
     )
 
 
@@ -59,7 +67,7 @@ def _format_api_error(error: RunbookApiError) -> str:
     )
 
 
-def _format_guidance_stop(error: LiveGuidanceStop) -> str:
+def _format_guidance_stop(error: LiveGuidanceStopError) -> str:
     guidance = GuidanceDiagnostic.model_validate(error.guidance.model_dump())
     code = "LIVE_ALREADY_COMPLETE" if error.success else "LIVE_GUIDANCE_STOP"
     return " ".join((code, "operation=status_guidance", *_guidance_fields(guidance)))
@@ -77,9 +85,7 @@ def live_command(
     provider: Annotated[LiveProvider, typer.Option("--provider")] = (
         LiveProvider.CODEX_EXEC
     ),
-    paper_concurrency: Annotated[
-        int, typer.Option("--paper-concurrency", min=1)
-    ] = 5,
+    paper_concurrency: Annotated[int, typer.Option("--paper-concurrency", min=1)] = 5,
     deadline_seconds: Annotated[
         float, typer.Option("--deadline-seconds", min=1.0)
     ] = 1_500.0,
@@ -101,9 +107,7 @@ def live_command(
                     "https://openagentreview.org",
                 )
             ),
-            idempotency_header=(
-                os.environ.get(_LIVE_IDEMPOTENCY_HEADER_ENV) or None
-            ),
+            idempotency_header=(os.environ.get(_LIVE_IDEMPOTENCY_HEADER_ENV) or None),
         )
         run_config = LiveRunConfig(
             provider=provider,
@@ -117,7 +121,7 @@ def live_command(
             api_config,
             run_config,
         )
-    except LiveGuidanceStop as error:
+    except LiveGuidanceStopError as error:
         typer.echo(_format_guidance_stop(error), err=not error.success)
         if error.success:
             return
@@ -155,6 +159,7 @@ def live_command(
                     f"mode={item.review_mode.value}",
                     f"status={item.status.value}",
                     f"receipt={item.receipt_verified}",
+                    f"failure={item.failure.value if item.failure else 'none'}",
                 )
             )
         )
