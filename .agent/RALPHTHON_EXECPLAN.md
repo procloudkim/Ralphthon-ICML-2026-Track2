@@ -1,6 +1,6 @@
 # ReviewHarness Ralphthon Track 2 ExecPlan
 
-Status: M0-M4 COMPLETE; M5 FINAL GATE GREEN, PUBLICATION PENDING
+Status: M0-M5 COMPLETE; DRAFT PR #1 OPEN
 Date: 2026-07-14
 Timezone: Asia/Seoul
 
@@ -403,7 +403,11 @@ public artifacts above are.
   two-paper check. Fresh full verification reports 241 passed and one opt-in smoke
   skipped, with Ruff, basedpyright, report generation, and diff checks green.
   Decision: KEEP.
-- [ ] M5 documentation, public artifacts, final diff, and branch push completed.
+- [x] 2026-07-14 19:54 +09:00 - M5 regenerated the scoped public metrics and
+  four-page report, published the portable provider-replay trace, removed the stale
+  verbose runtime trace, reconciled README and `PROGRESS.md`, passed the final
+  privacy/diff/QA gate, pushed `fix/provider-contract-quality-gates`, and opened
+  draft PR #1. Decision: KEEP.
 
 M5 preparation at 2026-07-14 19:53 +09:00: saved evaluator JSON and the anonymous
 report were regenerated from public fixtures; the provider-replay trace is saved;
@@ -412,8 +416,8 @@ Codex smoke passed in 43.37 seconds without event access or submission. The fina
 deterministic gate reports 241 passed with one opt-in smoke skipped, Ruff clean,
 basedpyright at zero errors, and a four-page anonymous report.
 
-Next exact action: complete the final privacy/diff/QA gate, commit the M5 artifacts,
-push the branch, and open a draft pull request.
+Next exact action: review draft PR #1 and promote it only if the documented proof
+boundary and remaining unverified surfaces are acceptable.
 
 ### Decision log
 
@@ -489,8 +493,9 @@ score provenance, and a validated concrete review.
 
 Still unmeasured: real-provider ten-paper runtime, full-mode hosted latency,
 human-reviewer correlation, arbitrary private-paper quality, and current
-authenticated event behavior. M5 is complete only after the final gate, branch
-push, and draft pull request.
+authenticated event behavior. M5 completed with the green final gate, pushed
+feature branch, and draft PR #1 at
+`https://github.com/procloudkim/Ralphthon-ICML-2026-Track2/pull/1`.
 
 # Historical 2026-07-12 event plan
 

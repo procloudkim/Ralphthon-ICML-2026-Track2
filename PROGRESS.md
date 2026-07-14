@@ -1,12 +1,14 @@
 # ReviewHarness Progress
 
-Last updated: 2026-07-14T19:53:06+09:00
+Last updated: 2026-07-14T19:54:41+09:00
 
-Phase: post-event provider-contract hardening, publication gate
+Phase: post-event provider-contract hardening complete; draft PR review
 
 Branch: `fix/provider-contract-quality-gates`
 
-Blocked: NO; GitHub publication is the remaining external action
+Draft PR: https://github.com/procloudkim/Ralphthon-ICML-2026-Track2/pull/1
+
+Blocked: NO; promotion from draft and merge remain human review decisions
 
 ## Current verdict
 
@@ -182,7 +184,6 @@ The complete gate is rerun once more immediately before publication.
 
 ## Next exact action
 
-Run the final deterministic gate, inspect the complete staged file and privacy
-boundary, commit the publication artifacts, push the branch, and open a draft pull
-request. Do not add ignored runtime traces, private event material, credentials, or
-submission receipts.
+Review draft PR #1 against the documented proof boundary. Promote and merge only if
+the remaining unverified surfaces are acceptable; do not add ignored runtime
+traces, private event material, credentials, or submission receipts.
