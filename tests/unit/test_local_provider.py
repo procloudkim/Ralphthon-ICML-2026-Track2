@@ -13,6 +13,7 @@ from reviewharness.providers import (
     SanitizedEvidencePage,
     SanitizedPaperEvidence,
 )
+from reviewharness.reviewers import CalibrationEvidence, ScoreCalibratorCandidates
 from reviewharness.schemas import ScoreProposal
 
 
@@ -30,7 +31,7 @@ class _TriLensOutput(_StrictTestModel):
     claims: tuple[ProviderClaim, ...]
     strengths: tuple[str, ...]
     findings: tuple[ProviderFinding, ...]
-    score_proposal: ScoreProposal | None
+    score_proposal: ScoreProposal
     uncertainty_notes: tuple[str, ...]
 
 
@@ -95,7 +96,6 @@ def test_tri_lens_output_is_deterministic_and_grounded() -> None:
     assert output.claims[0].reported_evidence[0].page == 1
     assert output.findings[0].evidence[0].page == 2
     assert "two datasets only" in output.findings[0].evidence[0].quote
-    assert output.score_proposal is not None
     assert "paper_id" not in first.raw_output
 
 
@@ -212,3 +212,20 @@ def test_unknown_output_schema_is_a_typed_provider_failure() -> None:
     # When / Then
     with pytest.raises(ProviderCallError, match="unsupported output schema"):
         _ = anyio.run(LocalHeuristicProvider().review, request)
+
+
+def test_local_full_calibrator_returns_explicit_offline_proposal() -> None:
+    # Given: the canonical score-only payload used after full-mode resolution.
+    payload = CalibrationEvidence(claims=(), findings=()).model_dump_json()
+    request = _request(
+        "score_calibration",
+        (SanitizedEvidencePage(page_number=1, text=payload),),
+    )
+
+    # When: the explicit local provider handles the dedicated schema.
+    response = anyio.run(LocalHeuristicProvider().review, request)
+    output = ScoreCalibratorCandidates.model_validate_json(response.raw_output)
+
+    # Then: it produces a named proposal rather than invoking a kernel fallback.
+    assert output.score_proposal.reviewer == "local_full_calibrator"
+    assert output.score_proposal.scores.overall_recommendation == 4

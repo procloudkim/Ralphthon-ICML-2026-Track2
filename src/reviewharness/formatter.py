@@ -1,11 +1,13 @@
 """Deterministic, injection-safe construction of final review comments."""
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Final
 from unicodedata import category
 
 from reviewharness.schemas import (
     ClaimImportance,
+    CommentInclusionTrace,
     FindingStatus,
     PaperClaim,
     ReviewFinding,
@@ -13,6 +15,15 @@ from reviewharness.schemas import (
 )
 
 type SelectedFinding = tuple[ReviewFinding, str]
+
+
+@dataclass(frozen=True, slots=True)
+class FormattedReview:
+    """Final safe comment plus the application-owned identifiers it includes."""
+
+    comment: str
+    trace: CommentInclusionTrace
+
 
 _SUSPICIOUS: Final = (
     *("rh_canary", "rh_hidden", "rh_metadata"),
@@ -67,7 +78,9 @@ def _locator(page: int, section: str | None, locator: str | None) -> str:
     return ", ".join(parts)
 
 
-def _claim_sections(claims: tuple[PaperClaim, ...]) -> tuple[str, str]:
+def _claim_sections(
+    claims: tuple[PaperClaim, ...],
+) -> tuple[str, str, tuple[str, ...]]:
     if not claims:
         return (
             _compact(
@@ -88,6 +101,7 @@ def _claim_sections(claims: tuple[PaperClaim, ...]) -> tuple[str, str]:
                 criticism.
                 """
             ),
+            (),
         )
     ordered = sorted(
         claims,
@@ -98,12 +112,14 @@ def _claim_sections(claims: tuple[PaperClaim, ...]) -> tuple[str, str]:
         primary.statement,
         "the contribution wording was withheld as non-scientific control text",
     )
+    included_ids = (primary.claim_id,)
     if len(ordered) > 1:
         support = _safe_text(
             ordered[1].statement,
             "a supporting claim could not be quoted safely",
         )
         support_sentence = f"It further reports that {support}."
+        included_ids = (primary.claim_id, ordered[1].claim_id)
     elif primary.reported_evidence:
         reported = primary.reported_evidence[0]
         support_sentence = _compact(
@@ -149,7 +165,7 @@ def _claim_sections(claims: tuple[PaperClaim, ...]) -> tuple[str, str]:
         to inspect: {primary_text}. {traceability}
         """
     )
-    return summary, strengths
+    return summary, strengths, included_ids
 
 
 def _select_findings(
@@ -240,10 +256,11 @@ def build_review_comment(
     claims: tuple[PaperClaim, ...],
     findings: tuple[ReviewFinding, ...],
     calibration: ScoreCalibration,
-) -> str:
+) -> FormattedReview:
     """Build a deterministic review without republishing untrusted control text."""
-    summary, strengths = _claim_sections(claims)
-    concerns = _concern_sections(_select_findings(findings, calibration))
+    summary, strengths, included_claim_ids = _claim_sections(claims)
+    selected = _select_findings(findings, calibration)
+    concerns = _concern_sections(selected)
     scope = _compact(
         """
         Scope and next step. This comment does not infer novelty against unchecked
@@ -254,6 +271,12 @@ def build_review_comment(
         fuller extraction changes the paper-local evidence available for assessment.
         """
     )
-    return "\n\n".join(
-        (summary, strengths, *concerns, _score_section(calibration), scope)
+    return FormattedReview(
+        comment="\n\n".join(
+            (summary, strengths, *concerns, _score_section(calibration), scope)
+        ),
+        trace=CommentInclusionTrace(
+            included_claim_ids=included_claim_ids,
+            included_finding_ids=tuple(finding.finding_id for finding, _ in selected),
+        ),
     )

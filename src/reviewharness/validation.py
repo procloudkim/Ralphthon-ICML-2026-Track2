@@ -10,9 +10,12 @@ from typing import Final, override
 from pydantic import ValidationError as PydanticValidationError
 
 from reviewharness.schemas import (
+    CommentInclusionTrace,
+    DecisionRelevance,
     FindingSeverity,
     FindingStatus,
     JudgmentType,
+    PaperClaim,
     ReviewFinding,
     ReviewScores,
     ReviewSubmission,
@@ -55,6 +58,7 @@ _UNCONDITIONAL_ACCEPT_PATTERN: Final = re.compile(
 )
 _REJECT_MAX: Final = 2
 _CRITICAL_MAX: Final = 3
+_LOW_RECOMMENDATION_MAX: Final = 3
 _ACCEPT_MIN: Final = 5
 _STRONG_ACCEPT: Final = 6
 _GOOD_MIN: Final = 3
@@ -77,6 +81,9 @@ class ValidationCode(StrEnum):
     SCORE_CONTRADICTION = "score_contradiction"
     COMMENT_SCORE_CONTRADICTION = "comment_score_contradiction"
     COMMENT_NOT_CONSTRUCTIVE = "comment_not_constructive"
+    EMPTY_CLAIM_LEDGER = "empty_claim_ledger"
+    COMMENT_TRACE_MISMATCH = "comment_trace_mismatch"
+    LOW_SCORE_WITHOUT_CITED_CONCERN = "low_score_without_cited_concern"
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,8 +109,10 @@ class ReviewValidationContext:
     """Trusted evidence and score trace used to validate one submission."""
 
     assignment: TrustedAssignment
+    claims: tuple[PaperClaim, ...]
     retained_findings: tuple[ReviewFinding, ...]
     calibration: ScoreCalibration
+    comment_trace: CommentInclusionTrace
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +160,7 @@ def validate_review_submission(
     issues.extend(_security_issues(submission.comment))
     issues.extend(_finding_issues(context))
     issues.extend(_score_issues(submission, context))
+    issues.extend(_trace_issues(submission, context))
     issues.extend(_comment_issues(submission, context.retained_findings))
     validated_submission = submission if not issues else None
     return ValidationReport(submission=validated_submission, issues=tuple(issues))
@@ -260,6 +270,48 @@ def _scores_contradict_findings(
             and (scores.soundness != _EXCELLENT or scores.significance != _EXCELLENT)
         )
     )
+
+
+def _trace_issues(
+    submission: ReviewSubmission,
+    context: ReviewValidationContext,
+) -> tuple[ValidationIssue, ...]:
+    issues: list[ValidationIssue] = []
+    claim_ids = {claim.claim_id for claim in context.claims}
+    retained_by_id = {
+        finding.finding_id: finding for finding in context.retained_findings
+    }
+    included_claim_ids = set(context.comment_trace.included_claim_ids)
+    included_finding_ids = set(context.comment_trace.included_finding_ids)
+    if not claim_ids:
+        issues.append(ValidationIssue(ValidationCode.EMPTY_CLAIM_LEDGER))
+    if (
+        not included_claim_ids
+        or not included_claim_ids <= claim_ids
+        or not included_finding_ids <= retained_by_id.keys()
+    ):
+        issues.append(ValidationIssue(ValidationCode.COMMENT_TRACE_MISMATCH))
+    required_minority = {
+        finding.finding_id
+        for finding in context.retained_findings
+        if finding.status is FindingStatus.MINORITY_SUPPORTED
+        and finding.severity in {FindingSeverity.CRITICAL, FindingSeverity.MAJOR}
+        and finding.decision_relevance is not DecisionRelevance.LOW
+    }
+    if not required_minority <= included_finding_ids:
+        issues.append(ValidationIssue(ValidationCode.COMMENT_TRACE_MISMATCH))
+    if submission.overall_recommendation <= _LOW_RECOMMENDATION_MAX:
+        has_cited_concern = any(
+            finding_id in included_finding_ids
+            and finding.evidence
+            and finding.decision_relevance is not DecisionRelevance.LOW
+            for finding_id, finding in retained_by_id.items()
+        )
+        if not has_cited_concern or _LOCATOR_PATTERN.search(submission.comment) is None:
+            issues.append(
+                ValidationIssue(ValidationCode.LOW_SCORE_WITHOUT_CITED_CONCERN)
+            )
+    return tuple(dict.fromkeys(issues))
 
 
 def _comment_issues(

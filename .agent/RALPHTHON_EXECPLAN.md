@@ -1,6 +1,6 @@
 # ReviewHarness Ralphthon Track 2 ExecPlan
 
-Status: M0-M1 COMPLETE; M2 SCORE PROVENANCE AND SEMANTIC GATES IN PROGRESS
+Status: M0-M2 COMPLETE; M3 LIVE FAILURE POLICY IN PROGRESS
 Date: 2026-07-14
 Timezone: Asia/Seoul
 
@@ -384,14 +384,19 @@ public artifacts above are.
   blocks, exact quote canonicalization, bounded block segmentation, and sanitized
   rejection counts. The full suite reports 219 passed and one opt-in smoke skipped;
   Ruff, basedpyright, and diff checks pass. Decision: KEEP.
-- [ ] M2 score provenance and semantic review gates verified.
+- [x] 2026-07-14 19:26 +09:00 - M2 made fast score proposals mandatory,
+  added the full-mode canonical-structure calibrator, removed fixed-score fallback,
+  persisted `tri_lens` / `full_calibrator` / `local_offline` provenance and comment
+  inclusion trace, and made empty ledgers, low-score generic prose, and omitted
+  decision-relevant minority concerns fail closed. The null-proposal falsifier moved
+  from RED to GREEN; 227 tests pass with one opt-in smoke skipped. Decision: KEEP.
 - [ ] M3 automatic live heuristic submission removed and failure isolation verified.
 - [ ] M4 independent scoped evaluators verified.
 - [ ] M5 documentation, public artifacts, final diff, and branch push completed.
 
-Next exact action: make fast score proposals mandatory, add the full-mode dedicated
-calibrator, then prove that missing provenance and low-score generic comments fail
-closed while the conformance replay retains its cited concern.
+Next exact action: remove the live kernel's automatic local-heuristic substitution,
+preserve one bounded provider retry, and prove typed terminal failures cannot create
+submission receipts or block valid sibling papers.
 
 ### Decision log
 
@@ -424,6 +429,8 @@ closed while the conformance replay retains its cited concern.
   permit their absence.
 - Full mode has no specialist score proposal and therefore also depends on the fixed
   fallback today.
+- A frozen dataclass exception cannot safely accept Python traceback assignment;
+  the typed kernel error must remain mutable even though its payload is bounded.
 - Final validation checks structure, security phrases, and broad consistency but does
   not require a concrete cited concern for a negative recommendation.
 - Current quality, security, and runtime evaluators share implementation assumptions

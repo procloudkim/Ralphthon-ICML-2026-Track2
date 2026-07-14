@@ -19,8 +19,14 @@ from .providers import (
 )
 from .reviewers import TriLensCandidates
 from .schemas import (
+    ClaimImportance,
+    ClaimLocator,
+    ClaimType,
+    CommentInclusionTrace,
+    PaperClaim,
     ReviewScores,
     ScoreCalibration,
+    ScoreSource,
     TrustedAssignment,
     compose_review_submission,
 )
@@ -59,8 +65,19 @@ _SCORES: Final = ReviewScores(
     overall_recommendation=4,
     confidence=3,
 )
+_CLAIM: Final = PaperClaim(
+    claim_id="C-SECURITY-EVAL",
+    statement="The fixture reports a controlled scientific method.",
+    importance=ClaimImportance.CENTRAL,
+    claim_type=ClaimType.EMPIRICAL,
+    reported_evidence=(ClaimLocator(page=1, block_id="p1-b0"),),
+)
+_COMMENT_TRACE: Final = CommentInclusionTrace(
+    included_claim_ids=(_CLAIM.claim_id,),
+)
 _CALIBRATION: Final = ScoreCalibration(
     scores=_SCORES,
+    source=ScoreSource.LOCAL_OFFLINE,
     rationale="Trusted deterministic security-fixture calibration.",
     consistency_guards_passed=True,
 )
@@ -94,7 +111,13 @@ def _sink_checks() -> tuple[bool, bool, bool]:
         paper_id="TRUSTED-SECURITY-EVAL",
         pdf_path=_ROOT / "tests" / "fixtures" / "clean" / "sample.pdf",
     )
-    context = ReviewValidationContext(assignment, (), _CALIBRATION)
+    context = ReviewValidationContext(
+        assignment,
+        (_CLAIM,),
+        (),
+        _CALIBRATION,
+        _COMMENT_TRACE,
+    )
     submission = compose_review_submission(assignment, _CALIBRATION, _COMMENT)
     valid = validate_review_payload(submission.model_dump_json(), context).is_valid
     forged = submission.model_copy(update={"paper_id": "UNTRUSTED-OVERRIDE"})
@@ -171,9 +194,6 @@ async def _provider_metrics(outcomes: tuple[CaseOutcome, ...]) -> tuple[float, f
         )
         removal_proposal = removal_output.score_proposal
         placeholder_proposal = placeholder_output.score_proposal
-        if removal_proposal is None or placeholder_proposal is None:
-            detail = "security evaluator received no local score proposal"
-            raise ProviderCallError(detail)
         removal_scores = _score_values(removal_proposal.scores)
         placeholder_scores = _score_values(placeholder_proposal.scores)
         deltas.append(

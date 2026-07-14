@@ -25,6 +25,7 @@ from reviewharness.schemas import (
     ReviewFinding,
     ReviewScores,
     ScoreProposal,
+    ScoreSource,
     TrustedAssignment,
     compose_review_submission,
 )
@@ -119,11 +120,12 @@ def _run_case(case: QualityCase) -> _CaseResult:
     calibration = calibrate_scores(
         CalibrationContext(
             proposal=proposal,
+            source=ScoreSource.LOCAL_OFFLINE,
             findings=(*resolution.retained, *resolution.rejected),
         ),
         rubric,
     )
-    comment = build_review_comment(
+    formatted = build_review_comment(
         (prepared.claim,),
         (*resolution.retained, *resolution.rejected),
         calibration,
@@ -132,13 +134,19 @@ def _run_case(case: QualityCase) -> _CaseResult:
         paper_id=case.case_id,
         pdf_path=_ROOT / case.paper_path,
     )
-    submission = compose_review_submission(assignment, calibration, comment)
+    submission = compose_review_submission(
+        assignment,
+        calibration,
+        formatted.comment,
+    )
     validation = validate_review_submission(
         submission,
         ReviewValidationContext(
             assignment=assignment,
+            claims=(prepared.claim,),
             retained_findings=resolution.retained,
             calibration=calibration,
+            comment_trace=formatted.trace,
         ),
     )
     expected = case.expected_score_consistent

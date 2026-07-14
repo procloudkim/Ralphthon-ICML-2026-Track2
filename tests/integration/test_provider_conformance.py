@@ -15,12 +15,36 @@ from reviewharness.providers import (
     ScriptedReviewerProvider,
     ScriptedSuccess,
 )
-from reviewharness.schemas import PaperClaim, ReviewFinding, TrustedAssignment
+from reviewharness.schemas import (
+    CommentInclusionTrace,
+    PaperClaim,
+    ReviewFinding,
+    ScoreCalibration,
+    ScoreSource,
+    TrustedAssignment,
+)
 from reviewharness.secure_ingest import ingest_pdf
 
 FIXTURES: Final = Path(__file__).parents[1] / "fixtures"
 CONFORMANCE_PDF: Final = FIXTURES / "conformance" / "paragraph_contract.pdf"
 PROVIDER_OUTPUT: Final = FIXTURES / "provider_outputs" / "paragraph_contract.json"
+SPECIALIST_OUTPUT: Final = '{"findings":[],"uncertainty_notes":[]}'
+CALIBRATOR_OUTPUT: Final = """{
+  "score_proposal": {
+    "reviewer": "untrusted-calibrator-role",
+    "scores": {
+      "soundness": 3,
+      "presentation": 3,
+      "significance": 3,
+      "originality": 3,
+      "overall_recommendation": 4,
+      "confidence": 3
+    },
+    "rationale": "Canonical claims support a borderline-positive assessment.",
+    "finding_ids": []
+  },
+  "uncertainty_notes": ["External novelty was not checked."]
+}"""
 CLAIMS: Final = TypeAdapter(tuple[PaperClaim, ...])
 FINDINGS: Final = TypeAdapter(tuple[ReviewFinding, ...])
 
@@ -82,6 +106,12 @@ def test_provider_replay_preserves_claim_finding_and_comment(tmp_path: Path) -> 
     outputs = _ReviewerOutputs.model_validate_json(
         (paper_dir / "reviewer_outputs.json").read_text("utf-8")
     )
+    score_trace = ScoreCalibration.model_validate_json(
+        (paper_dir / "score_trace.json").read_text("utf-8")
+    )
+    comment_trace = CommentInclusionTrace.model_validate_json(
+        (paper_dir / "comment_trace.json").read_text("utf-8")
+    )
 
     assert ledger[0].importance == "central"
     assert ledger[0].reported_evidence[0].block_id == "p1-b2"
@@ -94,5 +124,46 @@ def test_provider_replay_preserves_claim_finding_and_comment(tmp_path: Path) -> 
         accepted_evidence=1,
         finding_candidates=1,
     )
+    assert score_trace.source is ScoreSource.TRI_LENS
+    assert comment_trace.included_claim_ids
+    assert comment_trace.included_finding_ids == ("F1",)
     assert "uses one fixed seed" in review.comment
     assert "No evidence-located retained concern" not in review.comment
+
+
+def test_full_mode_uses_dedicated_calibrator_over_canonical_structures(
+    tmp_path: Path,
+) -> None:
+    """Full mode adds one score-only call after independent specialists."""
+    provider = ScriptedReviewerProvider(
+        tuple(
+            ScriptedSuccess(ReviewerResponse(raw_output=raw_output))
+            for raw_output in (
+                SPECIALIST_OUTPUT,
+                SPECIALIST_OUTPUT,
+                SPECIALIST_OUTPUT,
+                CALIBRATOR_OUTPUT,
+            )
+        )
+    )
+    assignment = TrustedAssignment(
+        paper_id="CONFORMANCE-FULL-001",
+        pdf_path=CONFORMANCE_PDF,
+    )
+
+    _ = anyio.run(
+        ReviewKernel(provider).review,
+        assignment,
+        ReviewMode.FULL,
+        tmp_path,
+    )
+    trace = ScoreCalibration.model_validate_json(
+        (tmp_path / assignment.paper_id / "score_trace.json").read_text("utf-8")
+    )
+
+    assert provider.call_count == 4
+    assert provider.requests[-1].output_schema.name == "score_calibration"
+    assert provider.requests[-1].sanitized_evidence.security_notes == (
+        "canonical_claims_and_findings_only",
+    )
+    assert trace.source is ScoreSource.FULL_CALIBRATOR

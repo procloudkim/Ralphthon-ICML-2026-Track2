@@ -1,6 +1,6 @@
 """Isolated single-paper evidence-grounded review kernel."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final, final, override
 
@@ -29,7 +29,7 @@ _PROMPTS: Final = Path(__file__).resolve().parents[2] / "prompts"
 _CALLS: Final = {ReviewMode.FULL: 3, ReviewMode.FAST: 1}
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class KernelReviewError(RuntimeError):
     """Expected per-paper failure safe for batch isolation."""
 
@@ -51,27 +51,13 @@ class ReviewKernelPolicy:
     confidence_cap: int | None = None
 
 
-def _fallback(*, degraded: bool) -> schemas.ScoreProposal:
-    return schemas.ScoreProposal(
-        reviewer="trusted-local-fallback",
-        scores=schemas.ReviewScores(
-            soundness=3,
-            presentation=3,
-            significance=2,
-            originality=2,
-            overall_recommendation=3,
-            confidence=2 if degraded else 3,
-        ),
-        rationale="Conservative rubric baseline pending stronger verified evidence.",
-    )
-
-
 @final
 class ReviewKernel:
     """Compose the capability-limited local review pipeline for one paper."""
 
     __slots__ = (
         "_confidence_cap",
+        "_is_local_offline",
         "_orchestrator",
         "_require_reviewer_output",
         "_rubric",
@@ -88,6 +74,7 @@ class ReviewKernel:
         """Bind trusted rubric/prompts and a capability-limited provider."""
         selected = LocalHeuristicProvider() if provider is None else provider
         selected_policy = ReviewKernelPolicy() if policy is None else policy
+        self._is_local_offline = isinstance(selected, LocalHeuristicProvider)
         self._rubric = load_rubric() if rubric is None else rubric
         self._require_reviewer_output = selected_policy.require_reviewer_output
         self._confidence_cap = selected_policy.confidence_cap
@@ -153,6 +140,11 @@ class ReviewKernel:
                 "reviewer_provider_unavailable",
             )
         ledger = claims.build_claim_ledger(reviewer_data.claims, prepared.blocks)
+        if not ledger:
+            raise KernelReviewError(
+                assignment.paper_id,
+                "unreviewable_empty_claim_ledger",
+            )
         linked_findings = support.relink_findings(
             reviewer_data.findings,
             reviewer_data.claims,
@@ -163,16 +155,52 @@ class ReviewKernel:
             prepared.blocks,
             ledger,
         )
-        proposal = (
-            reviewer_data.proposals[0]
-            if reviewer_data.proposals
-            else _fallback(
-                degraded=reviewer_data.failures > 0 or not reviewer_data.outputs
+        if mode is ReviewMode.FAST:
+            if len(reviewer_data.proposals) != 1:
+                raise KernelReviewError(
+                    assignment.paper_id,
+                    "score_provenance_unavailable",
+                )
+            proposal = reviewer_data.proposals[0]
+            score_source = (
+                schemas.ScoreSource.LOCAL_OFFLINE
+                if self._is_local_offline
+                else schemas.ScoreSource.TRI_LENS
             )
-        )
+        else:
+            calibration_outcome = await self._orchestrator.calibrate(
+                prepared.provider_evidence.document_sha256,
+                ledger,
+                resolution.retained + resolution.rejected,
+                self._rubric.model_dump_json(),
+                limiter,
+            )
+            if not isinstance(
+                calibration_outcome, reviewers.ReviewerSuccess
+            ) or not isinstance(
+                calibration_outcome.output,
+                reviewers.ScoreCalibratorCandidates,
+            ):
+                raise KernelReviewError(
+                    assignment.paper_id,
+                    "score_provenance_unavailable",
+                )
+            calibration_output = calibration_outcome.output
+            proposal = calibration_output.score_proposal
+            reviewer_data = replace(
+                reviewer_data,
+                outputs=(*reviewer_data.outputs, calibration_output),
+                proposals=(proposal,),
+            )
+            score_source = (
+                schemas.ScoreSource.LOCAL_OFFLINE
+                if self._is_local_offline
+                else schemas.ScoreSource.FULL_CALIBRATOR
+            )
         calibration = scoring.calibrate_scores(
             scoring.CalibrationContext(
                 proposal=proposal,
+                source=score_source,
                 findings=resolution.retained + resolution.rejected,
                 parser_confidence=1.0 if prepared.blocks else 0.2,
                 reviewer_disagreement=reviewer_data.failures / _CALLS[mode],
@@ -194,11 +222,11 @@ class ReviewKernel:
                     "scores": capped_scores,
                     "rationale": (
                         f"{calibration.rationale} Confidence is capped for "
-                        "heuristic fallback."
+                        "the explicit offline provider."
                     ),
                 }
             )
-        comment = formatter.build_review_comment(
+        formatted = formatter.build_review_comment(
             ledger,
             resolution.retained,
             calibration,
@@ -206,14 +234,16 @@ class ReviewKernel:
         submission = schemas.compose_review_submission(
             assignment,
             calibration,
-            comment,
+            formatted.comment,
         )
         validated = validation.validate_review_submission(
             submission,
             validation.ReviewValidationContext(
                 assignment,
+                ledger,
                 resolution.retained,
                 calibration,
+                formatted.trace,
             ),
         ).require_valid()
         support.persist_trace(
@@ -227,6 +257,7 @@ class ReviewKernel:
                 ledger,
                 resolution,
                 calibration,
+                formatted.trace,
                 validated,
             ),
         )

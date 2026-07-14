@@ -19,10 +19,13 @@ from .providers import (
     ProviderTimeoutError,
     ReviewerProvider,
     ReviewerRequest,
+    SanitizedEvidencePage,
     SanitizedPaperEvidence,
 )
 from .schemas import (
     NonEmptyStr,
+    PaperClaim,
+    ReviewFinding,
     ScoreProposal,
 )
 
@@ -43,16 +46,31 @@ class SpecialistCandidates(_StrictReviewerModel):
 
 
 class TriLensCandidates(SpecialistCandidates):
-    """Fast-mode claims, summary, strengths, findings, and optional proposal."""
+    """Fast-mode claims, findings, and mandatory rubric score proposal."""
 
     summary: NonEmptyStr
     claims: tuple[ProviderClaim, ...]
     strengths: tuple[NonEmptyStr, ...]
-    score_proposal: ScoreProposal | None
+    score_proposal: ScoreProposal
+
+
+class CalibrationEvidence(_StrictReviewerModel):
+    """Canonical scientific structures allowed into the score-only call."""
+
+    claims: tuple[PaperClaim, ...]
+    findings: tuple[ReviewFinding, ...]
+
+
+class ScoreCalibratorCandidates(_StrictReviewerModel):
+    """Dedicated full-mode score proposal awaiting trusted source overwrite."""
+
+    score_proposal: ScoreProposal
+    uncertainty_notes: tuple[NonEmptyStr, ...]
 
 
 _SPECIALIST_SCHEMA = json.dumps(SpecialistCandidates.model_json_schema())
 _TRI_LENS_SCHEMA = json.dumps(TriLensCandidates.model_json_schema())
+_SCORE_CALIBRATOR_SCHEMA = json.dumps(ScoreCalibratorCandidates.model_json_schema())
 
 
 class ReviewerLens(StrEnum):
@@ -62,6 +80,7 @@ class ReviewerLens(StrEnum):
     EVIDENCE = "evidence"
     IMPACT = "impact"
     TRI_LENS = "tri_lens"
+    SCORE_CALIBRATOR = "full_calibrator"
 
 
 class ReviewerFailureKind(StrEnum):
@@ -81,6 +100,7 @@ class ReviewerPrompts:
     evidence: str
     impact: str
     tri_lens: str
+    score_calibrator: str
 
     @classmethod
     def from_directory(cls, directory: Path) -> Self:
@@ -90,6 +110,9 @@ class ReviewerPrompts:
             evidence=(directory / "evidence_reviewer.md").read_text(encoding="utf-8"),
             impact=(directory / "impact_reviewer.md").read_text(encoding="utf-8"),
             tri_lens=(directory / "tri_lens_reviewer.md").read_text(encoding="utf-8"),
+            score_calibrator=(directory / "score_calibrator.md").read_text(
+                encoding="utf-8"
+            ),
         )
 
 
@@ -107,7 +130,7 @@ class ReviewerSuccess:
 
     lens: ReviewerLens
     attempts: int
-    output: SpecialistCandidates | TriLensCandidates
+    output: SpecialistCandidates | TriLensCandidates | ScoreCalibratorCandidates
     retryable: bool = False
 
 
@@ -129,6 +152,10 @@ _OUTPUT_CONTROLS: Final = {
     ReviewerLens.EVIDENCE: ("evidence_findings", _SPECIALIST_SCHEMA),
     ReviewerLens.IMPACT: ("impact_findings", _SPECIALIST_SCHEMA),
     ReviewerLens.TRI_LENS: ("tri_lens_review", _TRI_LENS_SCHEMA),
+    ReviewerLens.SCORE_CALIBRATOR: (
+        "score_calibration",
+        _SCORE_CALIBRATOR_SCHEMA,
+    ),
 }
 _LENSES_BY_MODE: Final = {
     ReviewMode.FULL: (ReviewerLens.METHOD, ReviewerLens.EVIDENCE, ReviewerLens.IMPACT),
@@ -182,6 +209,32 @@ class ReviewerOrchestrator:
             ordered.extend([await handle for handle in handles])
         return ReviewerRunResult(outcomes=tuple(ordered))
 
+    async def calibrate(
+        self,
+        document_sha256: str,
+        claims: tuple[PaperClaim, ...],
+        findings: tuple[ReviewFinding, ...],
+        rubric_text: str,
+        limiter: anyio.CapacityLimiter,
+    ) -> ReviewerOutcome:
+        """Run one score-only call over canonical structures, never raw paper text."""
+        calibration = CalibrationEvidence(claims=claims, findings=findings)
+        request = ReviewerRunRequest(
+            sanitized_evidence=SanitizedPaperEvidence(
+                document_sha256=document_sha256,
+                pages=(
+                    SanitizedEvidencePage(
+                        page_number=1,
+                        text=calibration.model_dump_json(),
+                    ),
+                ),
+                security_notes=("canonical_claims_and_findings_only",),
+            ),
+            rubric_text=rubric_text,
+            mode=ReviewMode.FULL,
+        )
+        return await self._call_lens(ReviewerLens.SCORE_CALIBRATOR, request, limiter)
+
     async def _call_lens(
         self,
         lens: ReviewerLens,
@@ -234,15 +287,23 @@ class ReviewerOrchestrator:
     ) -> ReviewerSuccess:
         if lens is ReviewerLens.TRI_LENS:
             parsed = TriLensCandidates.model_validate_json(raw_output, strict=True)
-            proposal = (
-                None
-                if parsed.score_proposal is None
-                else parsed.score_proposal.model_copy(update={"reviewer": lens.value})
-            )
+            proposal = parsed.score_proposal.model_copy(update={"reviewer": lens.value})
             output = parsed.model_copy(
                 update={
                     "score_proposal": proposal,
                 },
+            )
+        elif lens is ReviewerLens.SCORE_CALIBRATOR:
+            parsed_calibration = ScoreCalibratorCandidates.model_validate_json(
+                raw_output,
+                strict=True,
+            )
+            output = parsed_calibration.model_copy(
+                update={
+                    "score_proposal": parsed_calibration.score_proposal.model_copy(
+                        update={"reviewer": lens.value}
+                    )
+                }
             )
         else:
             output = SpecialistCandidates.model_validate_json(raw_output, strict=True)
@@ -268,6 +329,7 @@ class ReviewerOrchestrator:
             ReviewerLens.EVIDENCE: self._prompts.evidence,
             ReviewerLens.IMPACT: self._prompts.impact,
             ReviewerLens.TRI_LENS: self._prompts.tri_lens,
+            ReviewerLens.SCORE_CALIBRATOR: self._prompts.score_calibrator,
         }[lens]
         name, schema = _OUTPUT_CONTROLS[lens]
         return ReviewerRequest(

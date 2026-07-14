@@ -76,6 +76,7 @@ class KernelTrace:
     claims: tuple[schemas.PaperClaim, ...]
     resolution: evidence.EvidenceResolution
     calibration: schemas.ScoreCalibration
+    comment_trace: schemas.CommentInclusionTrace
     submission: schemas.ReviewSubmission
 
 
@@ -255,8 +256,7 @@ def collect_reviewer_data(
                 paper_claims.extend(canonical.claims)
                 findings.extend(canonical.findings)
                 contract_stats.append(canonical.stats)
-                if output.score_proposal is not None:
-                    proposals.append(output.score_proposal)
+                proposals.append(output.score_proposal)
             case reviewers.ReviewerSuccess(
                 output=reviewers.SpecialistCandidates() as output
             ):
@@ -269,7 +269,14 @@ def collect_reviewer_data(
                 )
                 findings.extend(canonical.findings)
                 contract_stats.append(canonical.stats)
+            case reviewers.ReviewerSuccess(
+                output=reviewers.ScoreCalibratorCandidates() as output
+            ):
+                outputs.append(output)
+                proposals.append(output.score_proposal)
             case reviewers.ReviewerFailure():
+                failures += 1
+            case reviewers.ReviewerSuccess():
                 failures += 1
             case _:
                 assert_never(outcome)
@@ -334,6 +341,7 @@ def persist_trace(
         ("normalized_findings", _models_json(trace.resolution.retained)),
         ("rejected_findings", _models_json(trace.resolution.rejected)),
         ("score_trace", _model_json(trace.calibration)),
+        ("comment_trace", _model_json(trace.comment_trace)),
         ("review", _model_json(trace.submission)),
     )
     for stage, payload in payloads:

@@ -9,6 +9,7 @@ ROLE_PROMPTS = (
     "evidence_reviewer.md",
     "impact_reviewer.md",
     "tri_lens_reviewer.md",
+    "score_calibrator.md",
     "adjudicator.md",
     "score_comment_calibrator.md",
 )
@@ -116,6 +117,11 @@ def test_role_specific_review_contracts_cover_the_pipeline() -> None:
             "do not average",
             "consistency guards",
             "250-450 words",
+        ),
+        "score_calibrator.md": (
+            "do not average",
+            "rubric-anchored rationale",
+            "confidence measures confidence in this assessment",
         ),
     }
 

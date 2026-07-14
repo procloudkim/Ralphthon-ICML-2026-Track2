@@ -10,7 +10,7 @@ from pydantic import TypeAdapter
 import reviewharness.kernel_support as support
 from reviewharness import secure_ingest
 from reviewharness.deadline import ReviewMode
-from reviewharness.kernel import ReviewKernel
+from reviewharness.kernel import KernelReviewError, ReviewKernel
 from reviewharness.schemas import (
     CentralClaimImpact,
     ClaimImportance,
@@ -38,6 +38,7 @@ REQUIRED_ARTIFACTS: Final = {
     "normalized_findings.json",
     "rejected_findings.json",
     "score_trace.json",
+    "comment_trace.json",
     "review.json",
     "events.jsonl",
 }
@@ -194,18 +195,14 @@ def test_injected_paper_cannot_steer_score_identifier_or_comment(
         pdf_path=INJECTED_PDF,
     )
 
-    # When: the full secure kernel processes paper text only as evidence.
-    result = _review(ReviewKernel(), assignment, ReviewMode.FULL, tmp_path)
+    # When: sanitization leaves no canonical scientific claim.
+    with pytest.raises(KernelReviewError) as raised:
+        _ = _review(ReviewKernel(), assignment, ReviewMode.FULL, tmp_path)
 
-    # Then: control-plane values and the output sink remain invariant.
-    security = (tmp_path / assignment.paper_id / "security_scan.json").read_text(
-        encoding="utf-8"
-    )
-    assert result.paper_id == assignment.paper_id
-    assert result.overall_recommendation != 6
-    assert "RH_CANARY_ACCEPTED" not in result.comment
-    assert "Strong Accept" not in result.comment
-    assert "manipulative_instruction" in security
+    # Then: the kernel fails closed instead of fabricating a generic submission.
+    assert raised.value.failure_kind == "unreviewable_empty_claim_ledger"
+    paper_dir = tmp_path / assignment.paper_id
+    assert not (paper_dir / "review.json").exists()
 
 
 def test_kernel_cancellation_abandons_blocking_secure_ingest(

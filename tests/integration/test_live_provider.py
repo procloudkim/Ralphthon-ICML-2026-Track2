@@ -16,6 +16,7 @@ from reviewharness.kernel import ReviewKernel, ReviewKernelPolicy
 from reviewharness.live_support import LiveProvider
 from reviewharness.providers import (
     OutputSchemaDeclaration,
+    ProviderCallError,
     ReviewerRequest,
     SanitizedEvidencePage,
     SanitizedPaperEvidence,
@@ -37,7 +38,26 @@ def _tri_lens_json() -> str:
             "summary": (
                 "The paper evaluates a compact classifier on controlled datasets."
             ),
-            "claims": [],
+            "claims": [
+                {
+                    "claim_id": "C1",
+                    "statement": (
+                        "The paper evaluates a compact classifier on two public "
+                        "datasets."
+                    ),
+                    "importance": "central",
+                    "claim_type": "empirical",
+                    "reported_evidence": [
+                        {
+                            "page": 1,
+                            "block_id": "p1-b2",
+                            "quote": (
+                                "evaluates a compact classifier on two public datasets"
+                            ),
+                        }
+                    ],
+                }
+            ],
             "strengths": ["The empirical objective is clearly stated."],
             "score_proposal": {
                 "reviewer": "codex_exec_tri_lens",
@@ -163,6 +183,24 @@ def test_codex_provider_uses_isolated_argument_array_contract() -> None:
     assert "compact classifier" not in " ".join(runner.command)
     assert '"default"' not in runner.output_schema_text
     assert runner.call_count == 1
+
+
+def test_codex_provider_rejects_unknown_schema_before_process_start() -> None:
+    # Given: an orchestration request outside the closed reviewer schema set.
+    runner = _RecordingRunner()
+    request = _request().model_copy(
+        update={
+            "output_schema": OutputSchemaDeclaration(
+                name="paper_controlled_schema",
+                json_schema="{}",
+            )
+        }
+    )
+
+    # When / Then: the provider fails before spawning Codex.
+    with pytest.raises(ProviderCallError, match="unknown schema"):
+        _ = anyio.run(CodexExecReviewerProvider(runner=runner).review, request)
+    assert runner.call_count == 0
 
 
 def test_live_mode_rejects_heuristic_only_configuration() -> None:
