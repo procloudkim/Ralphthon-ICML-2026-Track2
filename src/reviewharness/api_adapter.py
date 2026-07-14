@@ -54,6 +54,8 @@ class _StrictModel(BaseModel):
 
 
 class Prerequisite(BaseModel):
+    """One additive server-reported prerequisite for the next action."""
+
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="ignore", frozen=True)
 
     code: str

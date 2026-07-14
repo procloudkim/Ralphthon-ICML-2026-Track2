@@ -48,17 +48,23 @@ _MODEL_TIMEOUT_SECONDS: Final = 240.0
 _PER_PAPER_TIMEOUT_SECONDS: Final = 300.0
 _RESERVE_SECONDS: Final = 120.0
 _ALLOWED_ACTION_ACTORS: Final = frozenset({"agent", "server"})
+_STATUS_GUIDANCE_ACTOR_OPERATION: Final = "status guidance actor"
+_ASSIGNMENT_STATUS_OPERATION: Final = "assignment status"
 
 
 @dataclass(frozen=True, slots=True)
 class LivePreparation:
+    """Credential, actionable assignments, and server-bounded deadline."""
+
     credential: AgentCredential
     assignments: tuple[EventAssignment, ...]
     deadline_seconds: float
 
 
 @dataclass(frozen=True, slots=True)
-class LiveGuidanceStop(RuntimeError):
+class LiveGuidanceStopError(RuntimeError):
+    """Server guidance requires the live workflow to stop safely."""
+
     guidance: StatusGuidance
     success: bool
 
@@ -78,6 +84,7 @@ async def prepare_live_run(
     setup_token: SecretStr,
     run_config: LiveRunConfig,
 ) -> LivePreparation:
+    """Resolve canonical guidance and return only actionable assignments."""
     await adapter.fetch_canonical_skill()
     credential = await adapter.exchange_credential(
         CredentialExchangeRequest(setup_token=setup_token)
@@ -87,36 +94,36 @@ async def prepare_live_run(
     if guidance.next_action_actor not in _ALLOWED_ACTION_ACTORS:
         issue = ((("guidance", "next_action_actor"), "value_error"),)
         raise ApiContractError(
-            "status guidance actor",
+            _STATUS_GUIDANCE_ACTOR_OPERATION,
             1,
             issue,
         )
     match guidance.reason_code:
         case GuidanceReasonCode.ALL_REVIEWS_SUBMITTED:
-            raise LiveGuidanceStop(guidance, success=True)
+            raise LiveGuidanceStopError(guidance, success=True)
         case (
             GuidanceReasonCode.ACTIVE_TRACK2_REPORT_REQUIRED
             | GuidanceReasonCode.INSUFFICIENT_ELIGIBLE_PAPERS
         ):
-            raise LiveGuidanceStop(guidance, success=False)
+            raise LiveGuidanceStopError(guidance, success=False)
         case (
             GuidanceReasonCode.ASSIGNMENTS_CAN_BE_CREATED
             | GuidanceReasonCode.ASSIGNMENTS_RETURNED
             | GuidanceReasonCode.REVIEWS_REMAINING
         ):
             if not guidance.action_available and guidance.next_action == "none":
-                raise LiveGuidanceStop(guidance, success=False)
+                raise LiveGuidanceStopError(guidance, success=False)
     window_opens_at = guidance.time.window_opens_at
     window_closes_at = guidance.time.window_closes_at
     if window_opens_at is not None and guidance.time.now < window_opens_at:
-        raise LiveGuidanceStop(guidance, success=False)
+        raise LiveGuidanceStopError(guidance, success=False)
     server_seconds = run_config.deadline_seconds
     if window_closes_at is not None:
         server_seconds = (
             window_closes_at - guidance.time.now
         ).total_seconds() - _RESERVE_SECONDS
         if server_seconds <= 0.0:
-            raise LiveGuidanceStop(guidance, success=False)
+            raise LiveGuidanceStopError(guidance, success=False)
     batch = await adapter.get_assignments(credential)
     assignments = (
         batch.assignments
@@ -127,7 +134,7 @@ async def prepare_live_run(
         batch.submitted + batch.remaining != batch.assigned
         or len(assignments) != batch.remaining
     ):
-        raise ApiContractError("assignment status", 1)
+        raise ApiContractError(_ASSIGNMENT_STATUS_OPERATION, 1)
     return LivePreparation(
         credential=credential,
         assignments=assignments,

@@ -1,8 +1,457 @@
 # ReviewHarness Ralphthon Track 2 ExecPlan
 
-Status: P0 LOCALLY COMPLETE; LIVE EVENT/HOSTED PROVIDER UNVERIFIED
-Date: 2026-07-12
+Status: M0 COMPLETE; M1 PROVIDER EVIDENCE CONTRACT IN PROGRESS
+Date: 2026-07-14
 Timezone: Asia/Seoul
+
+## Current improvement cycle: recover scientific signal across the provider boundary
+
+### Purpose and user-visible outcome
+
+Produce a public, commit-ready post-event improvement release that preserves the
+working transport, security, trusted-identifier, and paper-isolation controls while
+preventing provider-generated scientific signal from silently collapsing into a
+generic review.
+
+The improved public behavior is:
+
+    trusted assignment + public test PDF
+        -> real or replayed provider output
+        -> parser-owned claim and evidence anchors
+        -> provider-sourced or dedicated-calibrator scores
+        -> a concrete, evidence-located review comment
+        -> strict validation
+
+This cycle does not resubmit event reviews, commit private papers or submissions,
+claim improved human correlation, or claim that a ten-paper live run has been
+revalidated. The release is complete only at the proof boundary actually exercised.
+
+### Business constraints and source-of-truth precedence
+
+- The event is over, so this is a public repository hardening cycle rather than a
+  competition submission cycle.
+- Private event PDFs, paper titles, review payloads, credentials, receipts, and raw
+  live traces stay ignored and out of Git.
+- The public `ReviewSubmission` fields and score ranges remain unchanged.
+- Paper content remains untrusted evidence and never gains tools, secrets, network,
+  submission authority, or control-plane identity.
+- Human labels remain unavailable; human correlation remains `N/A`.
+- A real-provider smoke may use saved Codex authentication, but it must not use the
+  event API or private event inputs.
+
+For this cycle, current source and tests outrank historical status text. The final
+proof order is: fresh command output, saved public artifacts, current source and
+tests, current documentation, then historical event artifacts.
+
+### Known facts, unknowns, and current repository state
+
+Fresh baseline at commit `df83e6f` on `main`, measured 2026-07-14:
+
+- The working tree is clean and synchronized with `origin/main`.
+- `uv run python -m pytest -q -p no:cacheprovider` reports 213 passed and one
+  skipped. The skipped case is the opt-in real Codex smoke.
+- `uv run ruff check --no-cache src tests report` fails with 60 findings.
+- `uv run basedpyright` fails with two optional-member-access errors in
+  `src/reviewharness/live_cli.py`.
+- README, `PROGRESS.md`, and the historical sections of this plan still say that
+  live execution is unverified even though live adapter and provider code now exist.
+
+A read-only aggregate audit of ignored live traces established the negative corpus:
+
+- Ten submissions eventually received verified transport receipts within the
+  1,500-second budget, but the run required reruns and two heuristic submissions.
+- The production path used fast mode only.
+- Eight Codex outputs produced 43 claim candidates and 41 finding candidates, yet
+  no provider-originated claim statement reached the final claim ledgers and no
+  concrete decision-relevant concern reached any final comment.
+- All eight Codex outputs had a null score proposal and therefore used the fixed
+  `trusted-local-fallback` score vector.
+- The controlled evaluators do not prove this production behavior: quality cases
+  construct their own blocks and evidence, security uses the deterministic provider
+  and a placeholder-versus-removal comparison, and runtime repeats one small PDF.
+
+Unknowns that must remain explicit:
+
+- Human-reviewer agreement and competition score impact are unavailable.
+- A new ten-paper real-provider runtime and quality result is unmeasured.
+- Real-provider output remains nondeterministic and may be unavailable locally.
+- Full-mode real-provider latency is unmeasured.
+
+### Root cause and design hypothesis
+
+The load-bearing failure is a contract mismatch, not absence of model reasoning.
+`prepare_evidence` exposes line-level IDs such as `p2-b3-l8`, while provider output
+naturally cites a paragraph block or line range. Claim normalization and evidence
+verification then require exact identifiers and an exact normalized substring.
+Most signal is rejected. The fast prompt simultaneously says to produce findings,
+not final scores, while its schema permits a null score proposal. The kernel then
+uses one fixed local score proposal and the formatter emits a generic comment that
+the shallow sink validator accepts.
+
+The improvement hypothesis is:
+
+> If provider-visible evidence uses parser-owned paragraph blocks, the structured
+> output contract requires exact block anchors and score provenance, and the final
+> sink requires a concrete concern for a negative recommendation, then provider
+> signal will survive without weakening fail-closed evidence verification.
+
+Each milestone changes one component and must be kept or reverted from measured
+before/after evidence.
+
+### Scope
+
+In scope:
+
+- restore a green static-analysis baseline;
+- align provider-visible evidence granularity with parser-owned PDF blocks;
+- require provider-compatible exact block anchors and evidence quotes;
+- remove fixed-score fallback from provider-success paths;
+- add a dedicated full-mode score-calibration call;
+- block automatic live heuristic submission by default;
+- add semantic final-comment and score-provenance gates;
+- add public provider-conformance fixtures and end-to-end tests;
+- separate deterministic evaluator scope from real-provider proof;
+- update README, `PROGRESS.md`, this plan, and measured public artifacts;
+- commit verified milestones and push one green feature branch.
+
+Out of scope:
+
+- event resubmission or replay against the organizer API;
+- use or publication of private event PDFs and reviews;
+- frontend, database, cloud service, or new deployment infrastructure;
+- OCR, visual-only scientific analysis, and external novelty search;
+- optimizing against unavailable human scores;
+- rewriting the anonymous competition report as if it were a new submission.
+
+### Architecture and trust boundaries
+
+Preserve the existing trusted control plane and capability-free provider process.
+Change only the scientific-data path:
+
+    ParsedDocument lines
+        -> sanitized parser-owned paragraph blocks
+        -> strict provider candidate DTOs
+        -> exact block/quote canonicalization
+        -> claim and finding evidence resolution
+        -> mode-specific score proposal
+        -> deterministic comment formatter with inclusion trace
+        -> semantic and security sink validation
+
+The application continues to own paper ID, assignment ordinal, rubric, mode,
+deadlines, provider configuration, score guards, submission routing, and receipts.
+The provider may propose claims, findings, and scores but cannot make any of them
+trusted merely by emitting schema-valid JSON.
+
+No fuzzy locator acceptance is introduced. A provider reference is accepted only
+when it names a parser-owned block visible in the request and its short evidence
+quote is a normalized substring of that block. Unknown, cross-page, or invented
+references remain rejected.
+
+### Input, intermediate, and output contract changes
+
+1. **Parser-owned provider evidence.** Update
+   `src/reviewharness/kernel_support.py` so sanitized lines sharing a PyMuPDF
+   `(page, block_index)` are coalesced into one paragraph block with identifier
+   `p{page}-b{block_index}`. If an oversized block must be split, use deterministic
+   `-s{segment}` suffixes. Apply line-level security replacements before joining.
+   Retain original line provenance in parsed artifacts, but expose only canonical
+   paragraph IDs to reviewer calls.
+
+2. **Provider candidate contract.** Add provider-facing DTOs in
+   `src/reviewharness/provider_contracts.py`. Provider claims and finding evidence
+   must cite one exact visible paragraph block and include a short verbatim evidence
+   quote. Block identifiers use a strict
+   `^p[1-9][0-9]*-b[0-9]+(?:-s[0-9]+)?$` pattern. Convert these DTOs into existing
+   canonical `PaperClaim` and `ReviewFinding` objects only after the block and quote
+   checks pass. The public submission schema is unchanged.
+
+3. **Score provenance.** Make fast-mode `score_proposal` non-null and change
+   `prompts/tri_lens_reviewer.md` to request findings plus a rubric-anchored score
+   proposal, not a final submission. Full mode keeps independent specialists and
+   then runs one capability-limited score-calibrator call over sanitized claims and
+   resolved findings. Remove `_fallback()` from provider-success paths. Persist a
+   score source of `tri_lens`, `full_calibrator`, or `local_offline`; never describe
+   a fixed default as provider-derived judgment.
+
+4. **Semantic submission gate.** Make the formatter return comment text plus the
+   identifiers of included claims and findings. Extend final validation so an
+   Overall Recommendation of 1-3 requires at least one included, paper-local,
+   decision-relevant concern. An empty claim ledger is an unreviewable-paper error,
+   not a valid generic review. Schema-valid generic text must not pass this gate.
+
+5. **Fallback policy.** In `src/reviewharness/live.py`, allow one bounded transient
+   provider retry. If provider output, score provenance, or semantic validation still
+   fails, write a typed paper-local failure and do not submit. Keep
+   `LocalHeuristicProvider` for explicit offline commands and deterministic tests;
+   do not automatically substitute it inside the live submission path.
+
+6. **Evaluation scope.** Preserve small deterministic tests as component proofs,
+   but stop presenting them as production-quality proof. Required metrics with an
+   empty denominator become unavailable and fail the gate instead of returning 1.0.
+   Add a public end-to-end conformance lane using generated PDFs and replayed
+   provider outputs. Keep a separate opt-in real Codex smoke and label ten-paper
+   real-provider runtime as unmeasured until it is actually rerun.
+
+### Milestones and concrete implementation steps
+
+#### M0: restore a trustworthy baseline
+
+Files: `src/reviewharness/live.py`, `live_cli.py`, `runbook_adapter.py`, affected
+tests, and `report/build_report.py`.
+
+- Fix the current Ruff and basedpyright failures without changing review behavior.
+- Replace invalid `noqa` directives with valid, narrowly scoped codes.
+- Run the same three baseline commands.
+- Keep only if 213 tests still pass, Ruff is clean, and basedpyright reports zero
+  errors.
+
+Commit: `chore(qa): restore static-analysis baseline`
+
+#### M1: reproduce and repair the provider evidence contract
+
+Files: `tests/fixtures/generate_pdfs.py`, new public fixtures under
+`tests/fixtures/conformance/`, new replay JSON under
+`tests/fixtures/provider_outputs/`, `kernel_support.py`, `reviewers.py`, new
+`provider_contracts.py`, `claims.py`, and `evidence.py`.
+
+- Generate a public PDF whose central claim and explicit one-seed limitation wrap
+  across several PDF lines inside stable paragraph blocks.
+- Add replay cases for a valid exact block, an invented block, a mismatched quote,
+  and a range-shaped legacy locator.
+- First record RED tests showing that current line-level IDs lose the valid claim and
+  finding.
+- Coalesce provider-visible evidence to paragraph blocks and canonicalize only exact
+  block-plus-quote references.
+- Verify that the valid claim and major concern survive, while the three invalid
+  references remain rejected.
+- Persist sanitized rejection reasons and counts without raw private text.
+
+Commit: `fix(review): align provider evidence with parser-owned blocks`
+
+#### M2: make score and comment quality fail closed
+
+Files: `prompts/tri_lens_reviewer.md`, new `prompts/score_calibrator.md`,
+`reviewers.py`, `codex_provider.py`, `local_provider.py`, `kernel.py`, `scoring.py`,
+`formatter.py`, `validation.py`, schemas, and focused tests.
+
+- Require a fast-mode score proposal and overwrite its reviewer identity with the
+  trusted lens as today.
+- Generalize the Codex provider to the known reviewer and score-calibrator schemas;
+  continue rejecting unknown schema names.
+- Add one full-mode calibrator call after evidence resolution. Its input contains
+  only sanitized claim/finding structures and rubric anchors.
+- Remove the fixed `trusted-local-fallback` proposal from production-capable paths.
+- Persist score provenance and formatter inclusion trace.
+- Add negative tests for null proposals, empty ledgers, low recommendations without
+  cited concerns, dropped supported-minority findings, and generic fallback text.
+- Add a positive end-to-end assertion that the public conformance PDF produces a
+  concrete cited concern and a score sourced from `tri_lens` or `full_calibrator`.
+
+Commit: `fix(review): require score provenance and semantic review evidence`
+
+#### M3: make degraded live behavior explicit
+
+Files: `live.py`, `live_support.py`, `live_cli.py`, and live-run tests.
+
+- Remove automatic heuristic submission from the default live path.
+- Perform at most one bounded retry for a typed transient provider failure.
+- Preserve paper-local failure isolation and completion records.
+- Ensure terminal results distinguish provider failure, evidence-contract failure,
+  score-provenance failure, semantic-validation failure, and verified submission.
+- Verify that a failed paper cannot block siblings and cannot create a receipt.
+- Keep receipt verification and idempotency behavior unchanged for valid reviews.
+
+Commit: `fix(live): block unproven heuristic submissions`
+
+#### M4: make evaluation claims independent and scoped
+
+Files: `eval_quality.py`, `eval_security.py`, `eval_runtime.py`, fixture corpora,
+CLI wiring, report loaders if required, and evaluator tests.
+
+- Run quality conformance through parser, provider replay, canonicalization,
+  calibration, formatter, and validation rather than constructing perfect evidence
+  directly at the verifier boundary.
+- Return `N/A` for empty-denominator metrics and make required unavailable metrics
+  fail `passed`.
+- Compare genuinely paired clean and injected public documents for security. Report
+  tool-call attempts only when observed through an instrumented provider runner;
+  otherwise mark the metric unmeasured instead of hard-coding zero.
+- Replace the ten copies of one PDF with ten generated, hash-distinct public papers.
+  Keep deterministic local runtime explicitly labeled as local synthetic runtime.
+- Add a separate two-paper opt-in Codex conformance smoke. Do not extrapolate it to
+  ten-paper runtime.
+
+Commit: `test(eval): separate conformance from production proof`
+
+#### M5: publish only the verified proof boundary
+
+Files: `README.md`, `PROGRESS.md`, this ExecPlan, evaluator JSON generated from
+public fixtures, and any changed report contract tests.
+
+- Replace stale live-unverified wording with a dated, evidence-specific status.
+- State separately what is structurally verified, provider-conformance verified,
+  real-provider smoke verified, and still unmeasured.
+- Do not commit `runs/`, private PDFs, raw event outputs, credentials, or submission
+  receipts.
+- Inspect the complete diff, tracked file list, and generated public artifacts.
+- Push only after every required gate below is green.
+
+Commit: `docs(status): publish post-event hardening proof boundary`
+
+### Validation commands and expected evidence
+
+Run focused commands after each milestone, then the complete gate:
+
+    uv run python -m pytest -q -p no:cacheprovider tests/unit/test_claims.py tests/unit/test_evidence.py tests/integration/test_kernel.py
+    uv run python -m pytest -q -p no:cacheprovider tests/integration/test_provider_conformance.py
+    uv run python -m pytest -q -p no:cacheprovider tests/integration/test_live_provider.py tests/unit/test_live_runbook.py
+    uv run python -m reviewharness eval-quality --output evals/results/quality.json
+    uv run python -m reviewharness eval-security --output evals/results/security.json
+    uv run python -m reviewharness eval-runtime --output evals/results/runtime.json
+    uv run python -m pytest -q -p no:cacheprovider
+    uv run ruff check --no-cache src tests report
+    uv run basedpyright
+    git diff --check
+
+The opt-in provider check is separate because it is nondeterministic and may require
+saved Codex authentication:
+
+    $env:RUN_CODEX_EXEC_SMOKE = '1'
+    uv run python -m pytest -q -p no:cacheprovider tests/integration/test_live_provider.py -k real_codex_exec_provider_smoke
+    Remove-Item Env:RUN_CODEX_EXEC_SMOKE
+
+Required public evidence:
+
+- a conformance trace containing at least one canonical central claim;
+- at least one evidence-located factual major concern retained from provider replay;
+- a final comment that includes that concern and canonical block locator;
+- a score trace whose source is not a fixed fallback;
+- negative traces for invented block, mismatched quote, null score proposal, and
+  low-score generic comment;
+- fresh quality, security, and runtime JSON with explicit scopes;
+- test, Ruff, and basedpyright green output;
+- an opt-in real-provider smoke result, or an explicit `UNVERIFIED` status if Codex
+  is unavailable.
+
+### Acceptance criteria
+
+This improvement cycle is complete only when:
+
+1. The public conformance PDF crosses the entire kernel with a provider replay and
+   preserves a central claim plus a decision-relevant, evidence-located concern.
+2. Invented locators and non-verbatim evidence remain rejected.
+3. Fast mode requires a provider score proposal; full mode uses a dedicated
+   calibrator; no production-capable success path uses a fixed score fallback.
+4. A recommendation of 1-3 cannot ship without an included cited concern.
+5. Empty claim ledgers fail as unreviewable instead of producing a generic review.
+6. Live provider failure cannot trigger an automatic heuristic submission.
+7. Paper isolation, trusted identifiers, injection containment, idempotency, and
+   verified receipt behavior do not regress.
+8. Evaluator artifacts state their data and provider scope and never convert an
+   empty denominator or unobserved tool activity into a perfect score.
+9. The full test suite, Ruff, basedpyright, and diff checks pass freshly.
+10. Documentation matches the exact measured proof boundary and no private artifact
+    enters the commit.
+
+### Commit and push sequence
+
+Create `fix/provider-contract-quality-gates` from `df83e6f`, carrying this plan as
+the only initial working-tree change. Keep the six milestone commits above locally.
+Do not push an intermediate RED state. After the complete acceptance gate passes:
+
+    git status --short
+    git diff --cached --name-only
+    git diff --cached --check
+    git log --oneline origin/main..HEAD
+    git push -u origin fix/provider-contract-quality-gates
+
+Before push, the staged file list must exclude `runs/`, `assignments/`,
+`private_papers/`, `submissions/`, `.env`, tokens, private PDFs, event payloads, and
+receipts. A GitHub-visible branch is not evidence of completion; the commands and
+public artifacts above are.
+
+### Progress checklist
+
+- [x] 2026-07-14 18:49 +09:00 - Read the repository contracts and current source,
+  inspected the ignored live aggregate without modifying it, and recorded the fresh
+  213-pass / Ruff-60 / basedpyright-2 baseline.
+- [x] 2026-07-14 18:49 +09:00 - Designed the bounded post-event improvement cycle.
+- [x] 2026-07-14 18:59 +09:00 - M0 restored the static-analysis baseline:
+  213 tests passed with one opt-in smoke skipped, Ruff passed, and basedpyright
+  reported zero errors. Decision: KEEP.
+- [ ] M1 provider evidence contract reproduced RED and repaired GREEN.
+- [ ] M2 score provenance and semantic review gates verified.
+- [ ] M3 automatic live heuristic submission removed and failure isolation verified.
+- [ ] M4 independent scoped evaluators verified.
+- [ ] M5 documentation, public artifacts, final diff, and branch push completed.
+
+Next exact action: add the public line-wrapped conformance fixture and provider replay,
+record the current signal-loss test as RED, then implement paragraph-block evidence
+without weakening exact locator or quote verification.
+
+### Decision log
+
+- 2026-07-14 - Improve the existing repository instead of starting over. The
+  transport, isolation, trusted-ID, and security boundaries are useful and should be
+  preserved; the failure is concentrated at the scientific contract and proof
+  boundaries.
+- 2026-07-14 - Use paragraph-level parser blocks rather than fuzzy locator matching.
+  This aligns the provider-visible unit with PyMuPDF provenance while remaining
+  deterministic and fail closed.
+- 2026-07-14 - Require a short verbatim evidence quote. Semantic similarity alone is
+  insufficient authority for a critical or major factual concern.
+- 2026-07-14 - Treat score provenance as required data. Schema-valid scores without a
+  reviewer or calibrator source are not scientific judgment.
+- 2026-07-14 - Prefer an explicit paper failure over automatic heuristic submission.
+  Availability does not justify silently changing the reviewer methodology.
+- 2026-07-14 - Preserve deterministic evaluators as component tests but separate them
+  from real-provider and production claims.
+
+### Unexpected discoveries
+
+- The real Codex smoke exists but is opt-in, so the ordinary 213-pass suite does not
+  exercise an actual provider process.
+- The provider-visible evidence granularity is finer than the provider's natural
+  citation granularity; this also explains fragmentary claim summaries.
+- Fast-mode instructions discourage scores while the schema and kernel silently
+  permit their absence.
+- Full mode has no specialist score proposal and therefore also depends on the fixed
+  fallback today.
+- Final validation checks structure, security phrases, and broad consistency but does
+  not require a concrete cited concern for a negative recommendation.
+- Current quality, security, and runtime evaluators share implementation assumptions
+  with the system they certify and therefore cannot independently establish live
+  scientific quality.
+
+### Risks, fallbacks, and recovery behavior
+
+- Paragraph coalescing can create large blocks. Cap provider-visible block size and
+  split deterministically at sentence boundaries while retaining parser provenance.
+- A strict verbatim quote may reduce completion. Allow one bounded provider repair
+  attempt that receives only the schema error code and visible block IDs; never
+  weaken the evidence gate or invent a locator.
+- A dedicated full-mode calibrator adds latency. Measure it separately. If it cannot
+  meet the configured budget, full-mode real-provider readiness remains unverified;
+  do not restore fixed scores.
+- Real Codex output may vary or the executable may be unavailable. Replay conformance
+  can still prove the interface, but the release status must remain real-provider
+  unverified.
+- Tight semantic gates may reduce ten-of-ten completion. Report the tradeoff directly
+  and retain per-paper failure isolation rather than submitting generic reviews.
+- Static cleanup can obscure behavioral changes. Keep M0 separate and inspect its
+  diff before beginning M1.
+
+### Final outcomes and remaining limitations
+
+Not yet measured. When implementation ends, replace this paragraph with exact fresh
+commands, artifact paths, commit IDs, pushed branch, and limitations. Do not mark the
+cycle complete merely because the plan or code exists.
+
+# Historical 2026-07-12 event plan
+
+The remainder of this file preserves the original event implementation plan and its
+historical local-P0 evidence. Its completion language does not supersede the current
+post-event acceptance criteria above.
 
 ## Purpose and user-visible outcome
 

@@ -80,7 +80,7 @@ def assignment(ordinal: int) -> dict[str, int | str | dict[str, str]]:
 
 
 @final
-@dataclass(slots=True)  # noqa: MUTABLE_OK
+@dataclass(slots=True)
 class RunbookHandler:
     reason_code: str = "assignments_can_be_created"
     action_available: bool = True

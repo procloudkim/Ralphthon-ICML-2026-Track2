@@ -26,6 +26,8 @@ TOP: Final = 748.0
 BOTTOM: Final = 48.0
 BODY_FONT: Final = 8.4
 LINE_HEIGHT: Final = 10.8
+ARCHITECTURE_PAGE: Final = 2
+RESULTS_PAGE: Final = 3
 TITLE: Final = (
     "ReviewHarness: Injection-Resilient Evidence-Weighted Review "
     "under Hidden Human Evaluation"
@@ -263,12 +265,17 @@ def _draw_architecture_diagram(pdf: _PdfCanvas, y: float) -> float:
     pdf.drawString(
         LEFT,
         y,
-        "Agreement informs confidence; verified evidence and central-claim impact determine priority.",
+        _joined(
+            (
+                "Agreement informs confidence; verified evidence and central-claim ",
+                "impact determine priority.",
+            )
+        ),
     )
     return y - 18.0
 
 
-def _draw_table_cell(
+def _draw_table_cell(  # noqa: PLR0913
     pdf: _PdfCanvas,
     text: str,
     x: float,
@@ -294,9 +301,7 @@ def _draw_results_table(pdf: _PdfCanvas, metrics: ReportMetrics, y: float) -> fl
     security = metrics.security
     quality = metrics.quality
     runtime = metrics.runtime
-    security_passes = round(
-        security.evaluated_cases * security.valid_completion_rate
-    )
+    security_passes = round(security.evaluated_cases * security.valid_completion_rate)
     quality_passes = round(quality.evaluated_cases * quality.valid_completion_rate)
     marker_leaks = round(security.evaluated_cases * security.marker_leakage_rate)
     rows = (
@@ -331,7 +336,12 @@ def _draw_results_table(pdf: _PdfCanvas, metrics: ReportMetrics, y: float) -> fl
                     f"{runtime.total_seconds:.3f} seconds.",
                 )
             ),
-            "Local synthetic provider; excludes hosted-model inference and network latency.",
+            _joined(
+                (
+                    "Local synthetic provider; excludes hosted-model inference ",
+                    "and network latency.",
+                )
+            ),
         ),
     )
     pdf.setFont("Helvetica-Bold", 10.0)
@@ -352,7 +362,11 @@ def _draw_results_table(pdf: _PdfCanvas, metrics: ReportMetrics, y: float) -> fl
         row_y = y - header_height - row_height * row_index
         pdf.line(LEFT, row_y, RIGHT, row_y)
     header_x = LEFT
-    for header, column_width in zip(("Lens", "Measured result", "Scope"), column_widths, strict=True):
+    for header, column_width in zip(
+        ("Lens", "Measured result", "Scope"),
+        column_widths,
+        strict=True,
+    ):
         _draw_table_cell(pdf, header, header_x, y, column_width, bold=True)
         header_x += column_width
     row_top = y - header_height
@@ -402,9 +416,9 @@ def _draw_page(
         for paragraph in section.paragraphs:
             y = _draw_paragraph(pdf, paragraph, y)
         y -= 6.0
-    if page_number == 2:
+    if page_number == ARCHITECTURE_PAGE:
         y = _draw_architecture_diagram(pdf, y)
-    if page_number == 3:
+    if page_number == RESULTS_PAGE:
         y = _draw_results_table(pdf, metrics, y)
     if y < BOTTOM:
         raise _ReportLayoutError(page_heading=page.heading)

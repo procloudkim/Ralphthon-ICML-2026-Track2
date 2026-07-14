@@ -7,17 +7,20 @@ import pytest
 from pydantic import SecretStr
 from typer.testing import CliRunner
 
-import reviewharness.live_cli as live_cli
-from reviewharness.api_adapter import ApiAdapterConfig, ApiContractError, EventAssignment
+from reviewharness import live_cli
+from reviewharness.api_adapter import (
+    ApiAdapterConfig,
+    ApiContractError,
+    EventAssignment,
+)
 from reviewharness.cli import app
-from reviewharness.live import LiveGuidanceStop, prepare_live_run
-from reviewharness.live_support import LiveRunConfig, LiveSummary
+from reviewharness.live import LiveGuidanceStopError, prepare_live_run
 from reviewharness.runbook_adapter import (
     GuidanceDiagnostic,
     RunbookApiAdapter,
     RunbookApiError,
 )
-from .live_runbook_support import (
+from tests.unit.live_runbook_support import (
     ASSIGNMENTS_PATH,
     CONFIG,
     EXCHANGE_PATH,
@@ -35,6 +38,8 @@ from .live_runbook_support import (
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from reviewharness.live_support import LiveRunConfig, LiveSummary
 
 
 def test_prepare_orders_skill_exchange_status_assignment_and_server_deadline(
@@ -110,7 +115,7 @@ def test_no_action_guidance_prevents_assignment_mutation(tmp_path: Path) -> None
             adapter = RunbookApiAdapter(CONFIG, http_client)
 
             # When / Then
-            with pytest.raises(LiveGuidanceStop):
+            with pytest.raises(LiveGuidanceStopError):
                 _ = await prepare_live_run(
                     adapter,
                     SecretStr("setup-secret"),
@@ -137,7 +142,7 @@ def test_blocking_guidance_stops_before_assignment_allocation(
             adapter = RunbookApiAdapter(CONFIG, http_client)
 
             # When
-            with pytest.raises(LiveGuidanceStop) as captured:
+            with pytest.raises(LiveGuidanceStopError) as captured:
                 _ = await prepare_live_run(
                     adapter,
                     SecretStr("setup-secret"),
@@ -164,7 +169,7 @@ def test_all_reviews_submitted_stops_successfully(tmp_path: Path) -> None:
             adapter = RunbookApiAdapter(CONFIG, http_client)
 
             # When
-            with pytest.raises(LiveGuidanceStop) as captured:
+            with pytest.raises(LiveGuidanceStopError) as captured:
                 _ = await prepare_live_run(
                     adapter,
                     SecretStr("setup-secret"),
@@ -195,7 +200,9 @@ def test_invalid_action_actor_is_rejected(tmp_path: Path) -> None:
     anyio.run(scenario)
 
 
-def test_live_cli_prints_only_redaction_safe_error_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_live_cli_prints_only_redaction_safe_error_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def failing_run(
         _token: SecretStr,
         _api_config: ApiAdapterConfig,
@@ -224,7 +231,7 @@ def test_live_cli_prints_only_redaction_safe_error_fields(monkeypatch: pytest.Mo
     assert result.exit_code == 1
     assert "operation=authenticated_status" in result.output
     assert "http_status=409" in result.output
-    assert "api_detail=\"window unavailable\"" in result.output
+    assert 'api_detail="window unavailable"' in result.output
     assert "reason_code=insufficient_eligible_papers" in result.output
     assert "server_now=2026-07-12T16:35:00+09:00" in result.output
     for forbidden in (

@@ -115,7 +115,7 @@ async def run_batch(  # noqa: C901
         async with paper_limiter:
             try:
                 decision = controller.start_paper()
-                match decision:  # noqa: MATCH_OK
+                match decision:
                     case deadline.StartPaper():
                         attempt = await _attempt(
                             assignment,
@@ -127,7 +127,7 @@ async def run_batch(  # noqa: C901
                             - decision.metrics.elapsed_seconds,
                             0.0,
                         )
-                        match attempt:  # noqa: MATCH_OK
+                        match attempt:
                             case (submission, mode, used_fallback):
                                 _ = store.write_json(
                                     assignment.paper_id,
@@ -186,11 +186,9 @@ async def run_batch(  # noqa: C901
     async def isolated_worker(index: int, assignment: TrustedAssignment) -> None:
         try:
             await worker(index, assignment)
-        except Exception:  # noqa: BLE001  # noqa: BROAD_EXCEPT_OK
+        except Exception:  # noqa: BLE001
             # This task boundary isolates ordinary bugs; cancellation still propagates.
-            item = _failure(
-                index, assignment.paper_id, ReviewFailureCode.REVIEW_FAILED
-            )
+            item = _failure(index, assignment.paper_id, ReviewFailureCode.REVIEW_FAILED)
             results[index] = item
             receipt: dict[str, JsonValue] = {
                 "elapsed_seconds": item.elapsed_seconds,
@@ -228,7 +226,7 @@ async def _attempt(  # noqa: C901
     runtime: _AttemptRuntime,
 ) -> _AttemptResult:
     reviewer, output_dir, limiter, controller = runtime
-    match started.mode:  # noqa: MATCH_OK
+    match started.mode:
         case deadline.ReviewMode.FULL:
             modes = (deadline.ReviewMode.FULL, deadline.ReviewMode.FAST)
         case deadline.ReviewMode.FAST:
@@ -237,7 +235,7 @@ async def _attempt(  # noqa: C901
     failure_code = ReviewFailureCode.REVIEW_FAILED
     for attempt_index, mode in enumerate(modes):
         if attempt_index:
-            match controller.check_paper(started.budget):  # noqa: MATCH_OK
+            match controller.check_paper(started.budget):
                 case deadline.ContinuePaper(paper_remaining_seconds=seconds):
                     remaining = seconds
                 case deadline.TimeoutPaper() | deadline.StopPaper():
