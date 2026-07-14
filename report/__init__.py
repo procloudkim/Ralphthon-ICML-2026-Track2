@@ -2,9 +2,17 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, ClassVar, Final, Literal, override
+from typing import Annotated, ClassVar, Final, Literal, Self, override
 
-from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    FiniteFloat,
+    ValidationError,
+    model_validator,
+)
+from pydantic_core import PydanticCustomError
 
 type _Count = Annotated[int, Field(strict=True, ge=0)]
 type _PositiveCount = Annotated[int, Field(strict=True, ge=1)]
@@ -25,7 +33,8 @@ class _SecurityMetrics(_StrictMetrics):
     evaluated_cases: _PositiveCount
     attack_success_rate: _Rate
     marker_leakage_rate: _Rate
-    unauthorized_tool_calls: _Count
+    unauthorized_tool_calls: _Count | None
+    unauthorized_tool_calls_status: Literal["unmeasured_no_instrumented_runner"]
     trusted_id_invariance_rate: _Rate
     valid_completion_rate: _Rate
     benign_false_positive_rate: _Rate
@@ -33,21 +42,27 @@ class _SecurityMetrics(_StrictMetrics):
     detection_recall: _Rate
     clean_injected_score_delta: _NonNegativeMetric
     clean_injected_issue_overlap: _Rate
-    evaluation_scope: Literal["deterministic_synthetic_fixture_and_provider"]
+    paired_document_count: _PositiveCount
+    evaluation_scope: Literal[
+        "synthetic_attack_cases_plus_public_paired_documents_local_provider"
+    ]
+    provider_scope: Literal["local_heuristic_no_tools_no_network"]
     passed: bool
 
 
 class _QualityMetrics(_StrictMetrics):
     evaluated_cases: _PositiveCount
-    evidence_coverage: _Rate
-    unsupported_critique_rate: _Rate
-    issue_precision: _Rate
-    issue_recall: _Rate
-    minority_preservation_rate: _Rate
-    score_comment_consistency_rate: _Rate
-    valid_completion_rate: _Rate
-    repeatability_rate: _Rate
-    top_issue_stability_rate: _Rate
+    evidence_coverage: _Rate | None
+    unsupported_critique_rate: _Rate | None
+    issue_precision: _Rate | None
+    issue_recall: _Rate | None
+    minority_preservation_rate: _Rate | None
+    score_comment_consistency_rate: _Rate | None
+    valid_completion_rate: _Rate | None
+    repeatability_rate: _Rate | None
+    top_issue_stability_rate: _Rate | None
+    provider_conformance_passed: bool
+    evaluation_scope: Literal["synthetic_component_cases_plus_public_provider_replay"]
     duration_seconds: _NonNegativeMetric
     passed: bool
     human_correlation: None
@@ -55,9 +70,32 @@ class _QualityMetrics(_StrictMetrics):
         "human labels and private judge heuristics were unavailable during development"
     ]
 
+    @model_validator(mode="after")
+    def _validate_passed_gate(self) -> Self:
+        required_rates = (
+            self.evidence_coverage,
+            self.unsupported_critique_rate,
+            self.issue_precision,
+            self.issue_recall,
+            self.minority_preservation_rate,
+            self.score_comment_consistency_rate,
+            self.valid_completion_rate,
+            self.repeatability_rate,
+            self.top_issue_stability_rate,
+        )
+        if self.passed and (
+            any(value is None for value in required_rates)
+            or not self.provider_conformance_passed
+        ):
+            code = "unproven_quality_gate"
+            message = "passed requires every quality metric and provider conformance"
+            raise PydanticCustomError(code, message)
+        return self
+
 
 class _RuntimeMetrics(_StrictMetrics):
     paper_count: _PositiveCount
+    distinct_pdf_count: _PositiveCount
     valid_completion_count: _Count
     total_seconds: _NonNegativeMetric
     p50_seconds: _NonNegativeMetric
@@ -70,6 +108,10 @@ class _RuntimeMetrics(_StrictMetrics):
     full_mode_executed: bool
     fast_mode_executed: bool
     monotonic_deadline: bool
+    evaluation_scope: Literal["local_synthetic_hash_distinct_pdf_batch"]
+    provider_scope: Literal["local_heuristic_no_network"]
+    real_provider_smoke_status: Literal["unverified"]
+    real_provider_ten_paper_runtime_seconds: None
 
 
 @dataclass(frozen=True, slots=True)

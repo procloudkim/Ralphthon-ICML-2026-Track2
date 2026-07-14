@@ -1,5 +1,6 @@
 {
   "paper_count": 10,
+  "distinct_pdf_count": 10,
   "valid_completion_count": 10,
   "total_seconds": 2.5,
   "p50_seconds": 0.22,
@@ -11,5 +12,9 @@
   "failure_isolation_passed": true,
   "full_mode_executed": true,
   "fast_mode_executed": true,
-  "monotonic_deadline": true
+  "monotonic_deadline": true,
+  "evaluation_scope": "local_synthetic_hash_distinct_pdf_batch",
+  "provider_scope": "local_heuristic_no_network",
+  "real_provider_smoke_status": "unverified",
+  "real_provider_ten_paper_runtime_seconds": null
 }

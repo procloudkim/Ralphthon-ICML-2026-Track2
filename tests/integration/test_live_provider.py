@@ -289,10 +289,25 @@ def test_two_paper_codex_smoke_is_concurrent_without_submission(
     os.getenv("RUN_CODEX_EXEC_SMOKE") != "1",
     reason="real Codex smoke is opt-in",
 )
-def test_real_codex_exec_provider_smoke() -> None:
-    # Given / When
-    response = anyio.run(CodexExecReviewerProvider().review, _request())
+def test_real_two_paper_codex_exec_provider_smoke() -> None:
+    # Given / When: two provider calls prove only this opt-in smoke lane.
+    async def scenario() -> tuple[str, ...]:
+        provider = CodexExecReviewerProvider()
+        responses: list[str] = []
+
+        async def review() -> None:
+            responses.append((await provider.review(_request())).raw_output)
+
+        async with anyio.create_task_group() as task_group:
+            _ = task_group.start_soon(review)
+            _ = task_group.start_soon(review)
+        return tuple(responses)
+
+    raw_outputs = anyio.run(scenario)
 
     # Then
-    parsed = TriLensCandidates.model_validate_json(response.raw_output)
-    assert parsed.summary
+    assert len(raw_outputs) == 2
+    assert all(
+        TriLensCandidates.model_validate_json(raw_output).summary
+        for raw_output in raw_outputs
+    )

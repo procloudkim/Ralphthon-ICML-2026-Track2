@@ -3,6 +3,7 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from hashlib import sha256
 from pathlib import Path
 from statistics import median
 from time import monotonic, monotonic_ns
@@ -47,6 +48,7 @@ class RuntimeMetrics(_StrictRuntimeModel):
     """Exact strict metric schema consumed by the anonymous report."""
 
     paper_count: Count
+    distinct_pdf_count: Count
     valid_completion_count: Count
     total_seconds: FiniteSeconds
     p50_seconds: FiniteSeconds
@@ -59,6 +61,10 @@ class RuntimeMetrics(_StrictRuntimeModel):
     full_mode_executed: bool
     fast_mode_executed: bool
     monotonic_deadline: Literal[True] = True
+    evaluation_scope: Literal["local_synthetic_hash_distinct_pdf_batch"]
+    provider_scope: Literal["local_heuristic_no_network"]
+    real_provider_smoke_status: Literal["unverified"]
+    real_provider_ten_paper_runtime_seconds: None = None
 
 
 class RuntimeRunConfig(_StrictRuntimeModel):
@@ -74,6 +80,7 @@ class _RuntimeFailureReason(StrEnum):
     GATES = "one or more measured runtime gates failed"
     CORPUS_SIZE = "runtime corpus must contain exactly ten papers"
     CORPUS_IDENTITIES = "runtime corpus paper identifiers must be unique"
+    CORPUS_PDF_HASHES = "runtime corpus must contain ten hash-distinct PDFs"
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,6 +206,7 @@ async def _evaluate_runtime(output: Path) -> RuntimeMetrics:
     metrics = _build_metrics(
         primary,
         reviewer.executed_modes,
+        distinct_pdf_count=_distinct_pdf_count(assignments),
         failure_recovered=failure_recovered,
     )
     _write_model(output, metrics)
@@ -221,6 +229,15 @@ def _load_corpus() -> _RuntimeCorpus:
         raise RuntimeEvaluationError(_RuntimeFailureReason.CORPUS_SIZE)
     if len(set(paper_ids)) != len(paper_ids):
         raise RuntimeEvaluationError(_RuntimeFailureReason.CORPUS_IDENTITIES)
+    assignments = tuple(
+        TrustedAssignment(
+            paper_id=case.paper_id,
+            pdf_path=_REPOSITORY_ROOT / case.pdf_path,
+        )
+        for case in corpus.assignments
+    )
+    if _distinct_pdf_count(assignments) != _PAPER_COUNT:
+        raise RuntimeEvaluationError(_RuntimeFailureReason.CORPUS_PDF_HASHES)
     return corpus
 
 
@@ -228,12 +245,14 @@ def _build_metrics(
     summary: BatchSummary,
     executed_modes: frozenset[ReviewMode],
     *,
+    distinct_pdf_count: int,
     failure_recovered: bool,
 ) -> RuntimeMetrics:
     durations = sorted(item.elapsed_seconds for item in summary.items)
     p95_index = max((95 * len(durations) + 99) // 100 - 1, 0)
     return RuntimeMetrics(
         paper_count=len(summary.items),
+        distinct_pdf_count=distinct_pdf_count,
         valid_completion_count=summary.completed_count,
         total_seconds=summary.total_seconds,
         p50_seconds=float(median(durations)),
@@ -247,6 +266,18 @@ def _build_metrics(
         failure_isolation_passed=failure_recovered,
         full_mode_executed=ReviewMode.FULL in executed_modes,
         fast_mode_executed=ReviewMode.FAST in executed_modes,
+        evaluation_scope="local_synthetic_hash_distinct_pdf_batch",
+        provider_scope="local_heuristic_no_network",
+        real_provider_smoke_status="unverified",
+    )
+
+
+def _distinct_pdf_count(assignments: Sequence[TrustedAssignment]) -> int:
+    return len(
+        {
+            sha256(assignment.pdf_path.read_bytes()).hexdigest()
+            for assignment in assignments
+        }
     )
 
 

@@ -64,6 +64,8 @@ def test_build_report_writes_anonymous_four_page_pdf(tmp_path: Path) -> None:
     assert page_count <= 4
     assert "Anonymous technical report" in text
     assert "Human correlation: N/A" in text
+    assert "unmeasured (no instrumented runner)" in text
+    assert "Real-provider ten-paper runtime remains unverified" in text
     assert "92.0%" in text
     assert "C:\\" not in text
 
@@ -177,5 +179,42 @@ def test_build_report_rejects_human_correlation_claim(tmp_path: Path) -> None:
     result = _run_report(metrics_dir, tmp_path / "fabricated.pdf")
 
     # Then
+    assert result.returncode != 0
+    assert "metric artifact failed strict validation" in result.stderr
+
+
+def test_build_report_renders_unavailable_quality_metric_as_na(
+    tmp_path: Path,
+) -> None:
+    metrics_dir = _copy_metrics(tmp_path)
+    quality_path = metrics_dir / "quality.json"
+    text = quality_path.read_text(encoding="utf-8")
+    text = text.replace('"evidence_coverage": 0.92', '"evidence_coverage": null')
+    text = text.replace('"passed": true', '"passed": false')
+    _ = quality_path.write_text(text, encoding="utf-8")
+
+    output = tmp_path / "unavailable.pdf"
+    result = _run_report(metrics_dir, output)
+
+    assert result.returncode == 0, result.stderr
+    _, rendered = _inspect_pdf(output)
+    assert "evidence coverage was N/A" in rendered
+
+
+def test_build_report_rejects_passing_quality_gate_with_unavailable_metric(
+    tmp_path: Path,
+) -> None:
+    metrics_dir = _copy_metrics(tmp_path)
+    quality_path = metrics_dir / "quality.json"
+    _ = quality_path.write_text(
+        quality_path.read_text(encoding="utf-8").replace(
+            '"evidence_coverage": 0.92',
+            '"evidence_coverage": null',
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run_report(metrics_dir, tmp_path / "unproven-quality.pdf")
+
     assert result.returncode != 0
     assert "metric artifact failed strict validation" in result.stderr

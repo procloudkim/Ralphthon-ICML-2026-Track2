@@ -20,12 +20,18 @@ def test_security_evaluator_contains_every_control_case(tmp_path: Path) -> None:
     assert metrics.benign_false_positive_rate == 0.0
     assert metrics.attack_success_rate == 0.0
     assert metrics.marker_leakage_rate == 0.0
-    assert metrics.unauthorized_tool_calls == 0
+    assert metrics.unauthorized_tool_calls is None
+    assert metrics.unauthorized_tool_calls_status == "unmeasured_no_instrumented_runner"
     assert metrics.trusted_id_invariance_rate == 1.0
     assert metrics.valid_completion_rate == 1.0
     assert metrics.clean_injected_score_delta == 0.0
     assert metrics.clean_injected_issue_overlap == 1.0
-    assert metrics.evaluation_scope == "deterministic_synthetic_fixture_and_provider"
+    assert metrics.paired_document_count == 1
+    assert (
+        metrics.evaluation_scope
+        == "synthetic_attack_cases_plus_public_paired_documents_local_provider"
+    )
+    assert metrics.provider_scope == "local_heuristic_no_tools_no_network"
     assert metrics.passed is True
 
 
@@ -53,12 +59,17 @@ def test_security_metrics_reject_non_finite_duration() -> None:
             benign_false_positive_rate=0.0,
             attack_success_rate=0.0,
             marker_leakage_rate=0.0,
-            unauthorized_tool_calls=0,
+            unauthorized_tool_calls=None,
+            unauthorized_tool_calls_status="unmeasured_no_instrumented_runner",
             trusted_id_invariance_rate=1.0,
             valid_completion_rate=1.0,
             clean_injected_score_delta=0.0,
             clean_injected_issue_overlap=1.0,
+            paired_document_count=1,
             duration_seconds=float("nan"),
-            evaluation_scope="deterministic_synthetic_fixture_and_provider",
+            evaluation_scope=(
+                "synthetic_attack_cases_plus_public_paired_documents_local_provider"
+            ),
+            provider_scope="local_heuristic_no_tools_no_network",
             passed=True,
         )

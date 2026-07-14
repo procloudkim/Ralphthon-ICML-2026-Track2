@@ -3,7 +3,11 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from reviewharness.eval_quality import QualityMetrics, run_quality_evaluation
+from reviewharness.eval_quality import (
+    QualityMetrics,
+    rate_or_unavailable,
+    run_quality_evaluation,
+)
 
 UNAVAILABLE_REASON = (
     "human labels and private judge heuristics were unavailable during development"
@@ -31,10 +35,19 @@ def test_quality_evaluation_passes_every_controlled_proxy(tmp_path: Path) -> Non
     assert metrics.valid_completion_rate == 1.0
     assert metrics.repeatability_rate == 1.0
     assert metrics.top_issue_stability_rate == 1.0
+    assert metrics.provider_conformance_passed is True
+    assert (
+        metrics.evaluation_scope
+        == "synthetic_component_cases_plus_public_provider_replay"
+    )
     assert metrics.duration_seconds >= 0.0
     assert metrics.passed is True
     assert metrics.human_correlation is None
     assert metrics.human_correlation_unavailable_reason == UNAVAILABLE_REASON
+    conformance_dir = tmp_path / "quality-conformance" / "QUALITY-CONFORMANCE"
+    assert (conformance_dir / "review.json").is_file()
+    assert (conformance_dir / "claim_ledger.json").is_file()
+    assert (conformance_dir / "score_trace.json").is_file()
 
 
 def test_quality_evaluation_repeats_deterministic_decisions(tmp_path: Path) -> None:
@@ -71,3 +84,18 @@ def test_quality_metrics_reject_nonfinite_runtime_and_claimed_correlation(
         _ = QualityMetrics.model_validate_json(nonfinite_json)
     with pytest.raises(ValidationError):
         _ = QualityMetrics.model_validate_json(claimed_json)
+
+
+def test_quality_rate_is_unavailable_without_observations() -> None:
+    assert rate_or_unavailable(0, 0) is None
+
+
+def test_quality_metrics_cannot_pass_with_an_unavailable_required_metric(
+    tmp_path: Path,
+) -> None:
+    metrics = run_quality_evaluation(tmp_path / "quality.json")
+    payload = metrics.model_dump()
+    payload["evidence_coverage"] = None
+
+    with pytest.raises(ValidationError, match="unproven_quality_gate"):
+        _ = QualityMetrics.model_validate(payload)

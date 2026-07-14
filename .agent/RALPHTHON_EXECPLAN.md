@@ -1,6 +1,6 @@
 # ReviewHarness Ralphthon Track 2 ExecPlan
 
-Status: M0-M3 COMPLETE; M4 EVALUATOR SCOPE HARDENING IN PROGRESS
+Status: M0-M4 COMPLETE; M5 PUBLICATION PROOF REFRESH IN PROGRESS
 Date: 2026-07-14
 Timezone: Asia/Seoul
 
@@ -395,12 +395,19 @@ public artifacts above are.
   provider/evidence/score/semantic terminal failures, and verified that one failed
   paper creates no receipt while a valid sibling still submits. The full suite
   reports 237 passed and one opt-in smoke skipped. Decision: KEEP.
-- [ ] M4 independent scoped evaluators verified.
+- [x] 2026-07-14 19:44 +09:00 - M4 separated component, conformance,
+  security-pair, local-runtime, and real-provider claims. Empty denominators now
+  emit `N/A` and cannot pass; tool activity is unmeasured without instrumentation;
+  the security lane uses a public clean/injected PDF pair; runtime uses ten
+  hash-distinct public PDFs; and the real Codex smoke is a separate opt-in
+  two-paper check. Fresh full verification reports 241 passed and one opt-in smoke
+  skipped, with Ruff, basedpyright, report generation, and diff checks green.
+  Decision: KEEP.
 - [ ] M5 documentation, public artifacts, final diff, and branch push completed.
 
-Next exact action: make evaluator denominators and unobserved activity explicit,
-route quality conformance through the real public kernel/replay seam, pair clean and
-injected security inputs, and replace repeated runtime PDFs with hash-distinct files.
+Next exact action: refresh saved public evaluator artifacts, reconcile README and
+`PROGRESS.md` to the measured proof boundary, run the opt-in provider smoke if
+available, then complete the final privacy/diff/QA gate before push.
 
 ### Decision log
 
@@ -419,6 +426,8 @@ injected security inputs, and replace repeated runtime PDFs with hash-distinct f
   Availability does not justify silently changing the reviewer methodology.
 - 2026-07-14 - Preserve deterministic evaluators as component tests but separate them
   from real-provider and production claims.
+- 2026-07-14 - Treat unobserved activity as unavailable, not zero. A local provider
+  with no instrumented tool runner cannot prove that no tool call was attempted.
 
 ### Unexpected discoveries
 
