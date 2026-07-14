@@ -68,7 +68,7 @@ def test_role_prompts_enforce_scientific_evidence_policy() -> None:
         assert "critical or major factual concern" in prompt
         assert "paper-local evidence" in prompt
         assert "page" in prompt
-        assert "locator" in prompt
+        assert "block_id" in prompt or "locator" in prompt
         assert "supported minority finding" in prompt
         assert "unsupported" in prompt
         assert "external novelty" in prompt

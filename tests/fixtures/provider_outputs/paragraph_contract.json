@@ -1,0 +1,59 @@
+{
+  "summary": "The paper evaluates a budget-aware classifier against a matched baseline.",
+  "claims": [
+    {
+      "claim_id": "C1",
+      "statement": "A budget-aware classifier improves mean accuracy over a matched linear baseline on two public datasets.",
+      "importance": "central",
+      "claim_type": "empirical",
+      "reported_evidence": [
+        {
+          "page": 1,
+          "block_id": "p1-b2",
+          "quote": "improves mean accuracy over a matched linear baseline on two public datasets"
+        }
+      ]
+    }
+  ],
+  "strengths": [
+    "The central comparison names a matched baseline and two public datasets."
+  ],
+  "findings": [
+    {
+      "finding_id": "F1",
+      "category": "statistical_reporting",
+      "judgment_type": "mixed",
+      "severity": "major",
+      "statement": "The central comparison does not establish stability across runs.",
+      "target_claim_id": "C1",
+      "evidence": [
+        {
+          "page": 1,
+          "block_id": "p1-b4",
+          "quote": "uses one fixed seed and reports no variance"
+        }
+      ],
+      "decision_relevance": "high",
+      "recommended_check": "Report repeated-seed variability for the matched comparison.",
+      "confidence": 0.95
+    }
+  ],
+  "score_proposal": {
+    "reviewer": "untrusted-provider-role",
+    "scores": {
+      "soundness": 2,
+      "presentation": 3,
+      "significance": 3,
+      "originality": 3,
+      "overall_recommendation": 2,
+      "confidence": 4
+    },
+    "rationale": "The one-seed comparison leaves a major central evidence gap.",
+    "finding_ids": [
+      "F1"
+    ]
+  },
+  "uncertainty_notes": [
+    "External novelty was not checked."
+  ]
+}

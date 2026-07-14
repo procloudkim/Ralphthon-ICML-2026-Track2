@@ -6,6 +6,12 @@ from typing import Final, final
 
 from anyio.lowlevel import checkpoint
 
+from .provider_contracts import (
+    ProviderClaim,
+    ProviderClaimEvidence,
+    ProviderFinding,
+    ProviderFindingEvidence,
+)
 from .providers import (
     ProviderCallError,
     ReviewerRequest,
@@ -17,17 +23,11 @@ from .reviewers import (
     TriLensCandidates,
 )
 from .schemas import (
-    CentralClaimImpact,
     ClaimImportance,
-    ClaimLocator,
     ClaimType,
     DecisionRelevance,
-    EvidenceLocator,
     FindingSeverity,
-    FindingStatus,
     JudgmentType,
-    PaperClaim,
-    ReviewFinding,
     ReviewScores,
     ScoreProposal,
 )
@@ -42,7 +42,7 @@ class _Sentence:
 
 
 _LINE_PREFIX: Final = re.compile(
-    r"^\[(?P<locator>p(?P<page>\d+)-b\d+-l\d+)\]\s*",
+    r"^\[(?P<locator>p(?P<page>\d+)-b\d+(?:-s\d+)?)\]\s*",
 )
 _SENTENCE_BREAK: Final = re.compile(r"(?<=[.!?])\s+")
 _SCIENCE_SIGNAL: Final = re.compile(
@@ -146,11 +146,16 @@ def _sentences(request: ReviewerRequest) -> tuple[_Sentence, ...]:
     return tuple(sentences)
 
 
-def _claims(sentences: tuple[_Sentence, ...]) -> tuple[PaperClaim, ...]:
-    claims: list[PaperClaim] = []
-    for index, sentence in enumerate(sentences[:2], start=1):
+def _claims(sentences: tuple[_Sentence, ...]) -> tuple[ProviderClaim, ...]:
+    supported = tuple(
+        sentence for sentence in sentences if sentence.block_id is not None
+    )
+    claims: list[ProviderClaim] = []
+    for index, sentence in enumerate(supported[:2], start=1):
+        if sentence.block_id is None:
+            continue
         claims.append(
-            PaperClaim(
+            ProviderClaim(
                 claim_id=f"C{index}",
                 statement=sentence.text,
                 importance=ClaimImportance.CENTRAL
@@ -158,10 +163,10 @@ def _claims(sentences: tuple[_Sentence, ...]) -> tuple[PaperClaim, ...]:
                 else ClaimImportance.SUPPORTING,
                 claim_type=ClaimType.EMPIRICAL,
                 reported_evidence=(
-                    ClaimLocator(
+                    ProviderClaimEvidence(
                         page=sentence.page,
-                        locator=sentence.locator,
                         block_id=sentence.block_id,
+                        quote=sentence.text,
                     ),
                 ),
             ),
@@ -171,8 +176,8 @@ def _claims(sentences: tuple[_Sentence, ...]) -> tuple[PaperClaim, ...]:
 
 def _findings(
     sentences: tuple[_Sentence, ...], reviewer: str
-) -> tuple[ReviewFinding, ...]:
-    findings: list[ReviewFinding] = []
+) -> tuple[ProviderFinding, ...]:
+    findings: list[ProviderFinding] = []
     for category, pattern in _RULES:
         source = next(
             (
@@ -182,16 +187,14 @@ def _findings(
             ),
             None,
         )
-        if source is None:
+        if source is None or source.block_id is None:
             continue
         findings.append(
-            ReviewFinding(
+            ProviderFinding(
                 finding_id=f"LOCAL-{category.upper()}-{source.page}",
-                reviewer=reviewer,
                 category=category,
                 judgment_type=JudgmentType.MIXED,
                 severity=FindingSeverity.MAJOR,
-                status=FindingStatus.CANDIDATE,
                 statement=(
                     "The paper explicitly states a "
                     + category.replace("_", " ")
@@ -199,14 +202,12 @@ def _findings(
                 ),
                 target_claim_id="C1",
                 evidence=(
-                    EvidenceLocator(
+                    ProviderFindingEvidence(
                         page=source.page,
-                        locator=source.locator,
-                        summary=source.text,
                         block_id=source.block_id,
+                        quote=source.text,
                     ),
                 ),
-                central_claim_impact=CentralClaimImpact.DIRECT,
                 decision_relevance=DecisionRelevance.HIGH,
                 recommended_check=(
                     "Address the documented "
@@ -216,6 +217,7 @@ def _findings(
                 confidence=0.95,
             ),
         )
+    _ = reviewer
     return tuple(findings)
 
 

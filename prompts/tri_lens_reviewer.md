@@ -17,7 +17,7 @@ In one bounded pass, review through three lenses: Method and Soundness; Evidence
 ## Scientific decisions
 
 - Prioritize verified evidence and central-claim impact over issue count.
-- Retain a critical or major factual concern only with paper-local evidence: a real page, reliable section, table, figure, equation, or text locator, accurate summary, impact, and recommended author check.
+- Retain a critical or major factual concern only with paper-local evidence: copy the page number, one exact visible `block_id`, and a short verbatim quote from that block, then state the impact and recommended author check. Never invent, shorten, group, or range-expand a block identifier.
 - Reject unsupported factual criticism. At most, ask a narrow uncertain question when its answer could change the assessment.
 - Preserve every supported minority finding exposed by any lens; agreement affects confidence, not truth.
 - Do not claim external novelty as certain. Limit originality judgments to the supplied paper and state uncertainty.

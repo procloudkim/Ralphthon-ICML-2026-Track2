@@ -17,7 +17,7 @@ Work independently. Do not inspect or infer other reviewer outputs. Examine supp
 ## Scientific decisions
 
 - Link each finding to an affected claim and make severity proportional to central-claim impact.
-- Retain a critical or major factual concern only with paper-local evidence: a real page, reliable section, table, figure, equation, or text locator, accurate summary, impact, and recommended author check.
+- Retain a critical or major factual concern only with paper-local evidence: copy the page number, one exact visible `block_id`, and a short verbatim quote from that block, then state the impact and recommended author check. Never invent or range-expand a block identifier.
 - Reject unsupported factual criticism. At most, ask a narrow uncertain question when its answer could change the assessment.
 - Preserve every supported minority finding for downstream verification; agreement affects confidence, not truth.
 - Do not claim external novelty as certain. Limit any originality observation to the supplied paper and state uncertainty.

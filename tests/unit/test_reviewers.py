@@ -25,7 +25,6 @@ from reviewharness.reviewers import (
     ReviewerSuccess,
     TriLensCandidates,
 )
-from reviewharness.schemas import FindingStatus
 
 SPECIALIST_JSON = '{"findings":[],"uncertainty_notes":[]}'
 FAST_JSON = """{
@@ -35,24 +34,25 @@ FAST_JSON = """{
     "statement": "The method improves accuracy.",
     "importance": "central",
     "claim_type": "empirical",
-    "reported_evidence": [{"page": 1, "locator": "Table 1"}]
+    "reported_evidence": [{
+      "page": 1,
+      "block_id": "p1-b1",
+      "quote": "The method improves accuracy."
+    }]
   }],
   "strengths": ["The comparison uses a stated baseline."],
   "findings": [{
     "finding_id": "F1",
-    "reviewer": "paper-controlled-role",
     "category": "reproducibility",
     "judgment_type": "objective",
     "severity": "major",
-    "status": "minority_supported",
     "statement": "Variance is not reported.",
     "target_claim_id": "C1",
     "evidence": [{
       "page": 1,
-      "locator": "Table 1",
-      "summary": "Only point estimates are shown."
+      "block_id": "p1-b2",
+      "quote": "Only point estimates are shown."
     }],
-    "central_claim_impact": "direct",
     "decision_relevance": "high",
     "recommended_check": "Report results across seeds.",
     "confidence": 0.9
@@ -144,7 +144,7 @@ def test_full_mode_runs_three_isolated_specialists_with_shared_capacity_bound() 
     )
 
 
-def test_fast_mode_parses_typed_candidates_and_overwrites_reviewer_authority() -> None:
+def test_fast_mode_parses_typed_candidates_and_overwrites_score_authority() -> None:
     # Given
     provider = ScriptedReviewerProvider(
         (ScriptedSuccess(ReviewerResponse(raw_output=FAST_JSON)),),
@@ -161,12 +161,12 @@ def test_fast_mode_parses_typed_candidates_and_overwrites_reviewer_authority() -
     output = outcome.output
     assert isinstance(output, TriLensCandidates)
     assert output.claims[0].claim_id == "C1"
-    assert output.findings[0].reviewer == ReviewerLens.TRI_LENS.value
-    assert output.findings[0].status is FindingStatus.CANDIDATE
     assert output.score_proposal is not None
     assert output.score_proposal.reviewer == ReviewerLens.TRI_LENS.value
     assert output.score_proposal.scores.soundness == 2
     assert '"paper_id"' not in provider.requests[0].output_schema.json_schema
+    assert '"reviewer"' not in output.findings[0].model_dump_json()
+    assert '"status"' not in output.findings[0].model_dump_json()
 
 
 def test_full_mode_preserves_successful_sibling_when_other_roles_fail() -> None:

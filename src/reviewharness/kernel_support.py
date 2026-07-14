@@ -2,6 +2,7 @@
 
 import json
 import re
+import textwrap
 import unicodedata
 from collections.abc import Sequence
 from contextlib import suppress
@@ -11,7 +12,14 @@ from typing import Final, assert_never
 
 from pydantic import BaseModel, TypeAdapter
 
-from reviewharness import artifacts, evidence, reviewers, schemas, secure_ingest
+from reviewharness import (
+    artifacts,
+    evidence,
+    provider_contracts,
+    reviewers,
+    schemas,
+    secure_ingest,
+)
 from reviewharness.deadline import ReviewMode
 from reviewharness.providers import SanitizedEvidencePage, SanitizedPaperEvidence
 
@@ -20,6 +28,8 @@ _HEADING: Final = re.compile(
     re.IGNORECASE,
 )
 _MAX_HEADING: Final = 80
+_MAX_PROVIDER_BLOCK_CHARS: Final = 6000
+_SENTENCE_BOUNDARY: Final = re.compile(r"(?<=[.!?])\s+")
 _JSON: Final[TypeAdapter[artifacts.JsonValue]] = TypeAdapter[artifacts.JsonValue](
     artifacts.JsonValue
 )
@@ -52,6 +62,7 @@ class ReviewerData:
     findings: tuple[schemas.ReviewFinding, ...]
     proposals: tuple[schemas.ScoreProposal, ...]
     failures: int
+    contract_stats: provider_contracts.ProviderContractStats
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,10 +137,11 @@ def prepare_evidence(
     pages: list[SanitizedEvidencePage] = []
     for page in ingest.document.pages:
         section: str | None = None
-        safe_lines: list[str] = []
+        block_order: list[int] = []
+        block_lines: dict[int, list[str]] = {}
+        block_sections: dict[int, str | None] = {}
         for line in page.lines:
             locator = line.locator
-            block_id = f"p{page.number}-b{locator.block_index}-l{locator.line_index}"
             location = (
                 f"page={locator.page};block={locator.block_index};"
                 f"line={locator.line_index}"
@@ -139,20 +151,34 @@ def prepare_evidence(
                 continue
             if len(text) <= _MAX_HEADING and _HEADING.match(text) is not None:
                 section = text
-            blocks.append(
-                schemas.PdfBlock(
-                    block_id=block_id,
-                    page=page.number,
-                    text=text,
-                    section=section,
-                    locator=block_id,
+            if locator.block_index not in block_lines:
+                block_order.append(locator.block_index)
+                block_lines[locator.block_index] = []
+                block_sections[locator.block_index] = section
+            block_lines[locator.block_index].append(text)
+        safe_blocks: list[str] = []
+        for block_index in block_order:
+            text = " ".join(block_lines[block_index])
+            segments = _provider_segments(text)
+            for segment_index, segment in enumerate(segments):
+                root_id = f"p{page.number}-b{block_index}"
+                block_id = (
+                    root_id if len(segments) == 1 else f"{root_id}-s{segment_index}"
                 )
-            )
-            safe_lines.append(f"[{block_id}] {text}")
+                blocks.append(
+                    schemas.PdfBlock(
+                        block_id=block_id,
+                        page=page.number,
+                        text=segment,
+                        section=block_sections[block_index],
+                        locator=block_id,
+                    )
+                )
+                safe_blocks.append(f"[{block_id}] {segment}")
         pages.append(
             SanitizedEvidencePage(
                 page_number=page.number,
-                text="\n".join(safe_lines),
+                text="\n".join(safe_blocks),
             )
         )
     notes = tuple(
@@ -169,28 +195,80 @@ def prepare_evidence(
     )
 
 
-def collect_reviewer_data(result: reviewers.ReviewerRunResult) -> ReviewerData:
+def _provider_segments(text: str) -> tuple[str, ...]:
+    """Bound provider context at sentence boundaries with a deterministic cap."""
+    sentences = _SENTENCE_BOUNDARY.split(text)
+    pieces = tuple(
+        piece
+        for sentence in sentences
+        for piece in (
+            (sentence,)
+            if len(sentence) <= _MAX_PROVIDER_BLOCK_CHARS
+            else tuple(
+                textwrap.wrap(
+                    sentence,
+                    width=_MAX_PROVIDER_BLOCK_CHARS,
+                    break_long_words=True,
+                    break_on_hyphens=False,
+                )
+            )
+        )
+        if piece
+    )
+    segments: list[str] = []
+    current = ""
+    for piece in pieces:
+        candidate = f"{current} {piece}".strip()
+        if current and len(candidate) > _MAX_PROVIDER_BLOCK_CHARS:
+            segments.append(current)
+            current = piece
+        else:
+            current = candidate
+    if current:
+        segments.append(current)
+    return tuple(segments)
+
+
+def collect_reviewer_data(
+    result: reviewers.ReviewerRunResult,
+    blocks: tuple[schemas.PdfBlock, ...],
+) -> ReviewerData:
     """Collect full or fast outputs while retaining every candidate finding."""
     outputs: list[BaseModel] = []
     paper_claims: list[schemas.PaperClaim] = []
     findings: list[schemas.ReviewFinding] = []
     proposals: list[schemas.ScoreProposal] = []
     failures = 0
+    contract_stats: list[provider_contracts.ProviderContractStats] = []
     for outcome in result.outcomes:
         match outcome:
             case reviewers.ReviewerSuccess(
                 output=reviewers.TriLensCandidates() as output
             ):
                 outputs.append(output)
-                paper_claims.extend(output.claims)
-                findings.extend(output.findings)
+                canonical = provider_contracts.canonicalize_provider_candidates(
+                    output.claims,
+                    output.findings,
+                    blocks,
+                    outcome.lens.value,
+                )
+                paper_claims.extend(canonical.claims)
+                findings.extend(canonical.findings)
+                contract_stats.append(canonical.stats)
                 if output.score_proposal is not None:
                     proposals.append(output.score_proposal)
             case reviewers.ReviewerSuccess(
                 output=reviewers.SpecialistCandidates() as output
             ):
                 outputs.append(output)
-                findings.extend(output.findings)
+                canonical = provider_contracts.canonicalize_provider_candidates(
+                    (),
+                    output.findings,
+                    blocks,
+                    outcome.lens.value,
+                )
+                findings.extend(canonical.findings)
+                contract_stats.append(canonical.stats)
             case reviewers.ReviewerFailure():
                 failures += 1
             case _:
@@ -201,6 +279,7 @@ def collect_reviewer_data(result: reviewers.ReviewerRunResult) -> ReviewerData:
         tuple(findings),
         tuple(proposals),
         failures,
+        provider_contracts.merge_provider_contract_stats(contract_stats),
     )
 
 
@@ -249,6 +328,7 @@ def persist_trace(
             {
                 "outputs": _models_json(trace.reviewer_data.outputs),
                 "failure_count": trace.reviewer_data.failures,
+                "provider_contract": _model_json(trace.reviewer_data.contract_stats),
             },
         ),
         ("normalized_findings", _models_json(trace.resolution.retained)),

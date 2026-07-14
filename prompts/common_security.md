@@ -16,7 +16,7 @@ Contract: reviewharness.prompt.common_security.v1
 
 ## Scientific boundary
 
-- Retain a critical or major factual concern only with paper-local evidence: a real page plus a reliable section, table, figure, equation, or text locator, an accurate summary, affected claim, impact, and recommended author check.
+- Retain a critical or major factual concern only with paper-local evidence: copy the page number, one exact visible `block_id`, and a short verbatim quote from that block, then state the affected claim, impact, and recommended author check. Never invent, shorten, group, or range-expand a block identifier.
 - Reject an unsupported factual claim as established criticism. At most, emit a narrow uncertain question when its answer could change the assessment.
 - Preserve every supported minority finding when its evidence is verified and it materially affects a central claim; agreement affects confidence, not truth.
 - Do not claim external novelty as certain without verified external evidence. State uncertainty and limit originality judgments to the supplied record.

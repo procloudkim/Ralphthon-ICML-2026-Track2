@@ -1,6 +1,6 @@
 # ReviewHarness Ralphthon Track 2 ExecPlan
 
-Status: M0 COMPLETE; M1 PROVIDER EVIDENCE CONTRACT IN PROGRESS
+Status: M0-M1 COMPLETE; M2 SCORE PROVENANCE AND SEMANTIC GATES IN PROGRESS
 Date: 2026-07-14
 Timezone: Asia/Seoul
 
@@ -379,15 +379,19 @@ public artifacts above are.
 - [x] 2026-07-14 18:59 +09:00 - M0 restored the static-analysis baseline:
   213 tests passed with one opt-in smoke skipped, Ruff passed, and basedpyright
   reported zero errors. Decision: KEEP.
-- [ ] M1 provider evidence contract reproduced RED and repaired GREEN.
+- [x] 2026-07-14 19:16 +09:00 - M1 reproduced the line-locator loss on the
+  public wrapped-paragraph fixture, then repaired it with parser-owned paragraph
+  blocks, exact quote canonicalization, bounded block segmentation, and sanitized
+  rejection counts. The full suite reports 219 passed and one opt-in smoke skipped;
+  Ruff, basedpyright, and diff checks pass. Decision: KEEP.
 - [ ] M2 score provenance and semantic review gates verified.
 - [ ] M3 automatic live heuristic submission removed and failure isolation verified.
 - [ ] M4 independent scoped evaluators verified.
 - [ ] M5 documentation, public artifacts, final diff, and branch push completed.
 
-Next exact action: add the public line-wrapped conformance fixture and provider replay,
-record the current signal-loss test as RED, then implement paragraph-block evidence
-without weakening exact locator or quote verification.
+Next exact action: make fast score proposals mandatory, add the full-mode dedicated
+calibrator, then prove that missing provenance and low-score generic comments fail
+closed while the conformance replay retains its cited concern.
 
 ### Decision log
 
@@ -413,6 +417,9 @@ without weakening exact locator or quote verification.
   exercise an actual provider process.
 - The provider-visible evidence granularity is finer than the provider's natural
   citation granularity; this also explains fragmentary claim summaries.
+- Provider-contract failures can be reported safely as aggregate reason codes
+  (`unknown_block`, `page_mismatch`, `quote_mismatch`) without persisting rejected
+  provider text.
 - Fast-mode instructions discourage scores while the schema and kernel silently
   permit their absence.
 - Full mode has no specialist score proposal and therefore also depends on the fixed

@@ -66,7 +66,7 @@ def _request() -> ReviewerRequest:
                 SanitizedEvidencePage(
                     page_number=1,
                     text=(
-                        "[p1-b1-l0] The paper evaluates a compact classifier "
+                        "[p1-b1] The paper evaluates a compact classifier "
                         "on two controlled datasets."
                     ),
                 ),

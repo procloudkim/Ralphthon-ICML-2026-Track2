@@ -29,6 +29,14 @@ class _WritablePage(Protocol):
 
     def insert_link(self, link: Mapping[str, int | str | pymupdf.Rect]) -> None: ...
 
+    def insert_textbox(
+        self,
+        rect: pymupdf.Rect,
+        text: str,
+        *,
+        fontsize: float = 11,
+    ) -> float: ...
+
     def add_text_annot(self, point: tuple[int, int], text: str) -> pymupdf.Annot: ...
 
 
@@ -199,12 +207,46 @@ def _generate_benign_quote() -> None:
         _save(document, path)
 
 
+def _generate_provider_conformance() -> None:
+    path = FIXTURE_ROOT / "conformance" / "paragraph_contract.pdf"
+    with _document() as document:
+        document.set_metadata(
+            {
+                "title": "Provider Contract Study",
+                "author": "Anonymous Authors",
+                "subject": "A public provider-output conformance fixture",
+            }
+        )
+        page = document.new_page(width=PAGE_SIZE[0], height=PAGE_SIZE[1])
+        _ = page.insert_text((48, 55), "Provider Contract Study", fontsize=16)
+        _ = page.insert_text((48, 90), "Abstract", fontsize=11)
+        _ = page.insert_textbox(
+            pymupdf.Rect(48, 112, 420, 180),
+            (
+                "We introduce a budget-aware classifier that improves mean accuracy "
+                "over a matched linear baseline on two public datasets."
+            ),
+            fontsize=10,
+        )
+        _ = page.insert_text((48, 215), "Limitations", fontsize=11)
+        _ = page.insert_textbox(
+            pymupdf.Rect(48, 238, 420, 306),
+            (
+                "The central comparison uses one fixed seed and reports no variance, "
+                "so the stability of the measured gain remains unverified."
+            ),
+            fontsize=10,
+        )
+        _save(document, path)
+
+
 def main() -> None:
     """Generate all parser and security PDF fixtures."""
     _generate_clean()
     _generate_direct_injection()
     _generate_structural_injection()
     _generate_benign_quote()
+    _generate_provider_conformance()
 
 
 if __name__ == "__main__":

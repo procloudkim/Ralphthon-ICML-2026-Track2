@@ -10,6 +10,7 @@ import anyio
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from .deadline import ReviewMode
+from .provider_contracts import ProviderClaim, ProviderFinding
 from .providers import (
     OutputSchemaDeclaration,
     ProviderCallError,
@@ -21,10 +22,7 @@ from .providers import (
     SanitizedPaperEvidence,
 )
 from .schemas import (
-    FindingStatus,
     NonEmptyStr,
-    PaperClaim,
-    ReviewFinding,
     ScoreProposal,
 )
 
@@ -40,7 +38,7 @@ class _StrictReviewerModel(BaseModel):
 class SpecialistCandidates(_StrictReviewerModel):
     """Candidate findings produced by one full-mode specialist."""
 
-    findings: tuple[ReviewFinding, ...]
+    findings: tuple[ProviderFinding, ...]
     uncertainty_notes: tuple[NonEmptyStr, ...]
 
 
@@ -48,7 +46,7 @@ class TriLensCandidates(SpecialistCandidates):
     """Fast-mode claims, summary, strengths, findings, and optional proposal."""
 
     summary: NonEmptyStr
-    claims: tuple[PaperClaim, ...]
+    claims: tuple[ProviderClaim, ...]
     strengths: tuple[NonEmptyStr, ...]
     score_proposal: ScoreProposal | None
 
@@ -243,28 +241,12 @@ class ReviewerOrchestrator:
             )
             output = parsed.model_copy(
                 update={
-                    "findings": self._candidate_findings(lens, parsed.findings),
                     "score_proposal": proposal,
                 },
             )
         else:
-            parsed = SpecialistCandidates.model_validate_json(raw_output, strict=True)
-            output = parsed.model_copy(
-                update={"findings": self._candidate_findings(lens, parsed.findings)},
-            )
+            output = SpecialistCandidates.model_validate_json(raw_output, strict=True)
         return ReviewerSuccess(lens=lens, attempts=attempts, output=output)
-
-    @staticmethod
-    def _candidate_findings(
-        lens: ReviewerLens,
-        findings: tuple[ReviewFinding, ...],
-    ) -> tuple[ReviewFinding, ...]:
-        return tuple(
-            finding.model_copy(
-                update={"reviewer": lens.value, "status": FindingStatus.CANDIDATE},
-            )
-            for finding in findings
-        )
 
     @staticmethod
     def _provider_failure(

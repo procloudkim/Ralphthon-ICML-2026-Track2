@@ -146,7 +146,7 @@ class ReviewKernel:
             ),
             limiter,
         )
-        reviewer_data = support.collect_reviewer_data(run)
+        reviewer_data = support.collect_reviewer_data(run, prepared.blocks)
         if self._require_reviewer_output and not reviewer_data.outputs:
             raise KernelReviewError(
                 assignment.paper_id,
